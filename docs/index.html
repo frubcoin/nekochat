@@ -5,165 +5,76 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>tryl.chat</title>
-  <meta name="description" content="tryl.chat — a retro chat room on the web. Jump in and talk to your friends!">
+  <meta name="description" content="tryl.chat — a minimal real-time chat room.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Jersey+10&family=Press+Start+2P&family=VT323&display=swap"
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Jersey+10&display=swap"
     rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-  <!-- ═══ STARFIELD CURSOR TRAIL ═══ -->
-  <div id="cursor-trail"></div>
 
   <!-- ═══ LOGIN OVERLAY ═══ -->
   <div id="login-overlay">
     <div id="login-box">
       <div class="login-wordmark">tryl.chat</div>
-      <div class="login-tagline">~ real-time retro chat ~</div>
-      <div class="login-cat">
-        <pre class="ascii-cat">
-  ╱|、
-(˚ˎ 。7  
- |、˜〵          
-じしˍ,)ノ
-        </pre>
-      </div>
-      <div class="login-subtitle">pick a name & jump in</div>
+      <p class="login-subtitle">enter a name to start chatting</p>
       <form id="login-form">
-        <input type="text" id="username-input" maxlength="20" placeholder="your name..." autocomplete="off" autofocus>
-        <button type="submit" class="retro-btn">
-          ⚡ Enter Chat ⚡
-        </button>
+        <input type="text" id="username-input" maxlength="20" placeholder="your name" autocomplete="off" autofocus>
+        <button type="submit" class="btn-primary">Join →</button>
       </form>
-      <div class="login-footer">
-        <span class="rainbow-text">Best viewed in Netscape Navigator 4.0</span>
-      </div>
+      <p class="login-hint">be kind to each other</p>
     </div>
   </div>
 
   <!-- ═══ MAIN CHAT PAGE ═══ -->
   <div id="chat-page" class="hidden">
-    <!-- TOP BANNER -->
-    <div id="top-banner">
-      <div class="banner-border-top"></div>
-      <marquee behavior="scroll" direction="left" scrollamount="3">
-        ★彡 Welcome to tryl.chat!! ★彡 The retro chat room ★彡 Be nice or be BANNED!! ★彡
-        You are visitor #<span id="visitor-num">????</span>! ★彡
-      </marquee>
-      <div class="banner-border-bottom"></div>
-    </div>
 
-    <!-- TITLE AREA -->
-    <div id="title-area">
-      <div class="title-stars">✦✧✦✧✦✧✦✧✦✧✦✧✦✧✦</div>
-      <h1 class="site-wordmark">tryl.chat</h1>
-      <div class="title-stars">✦✧✦✧✦✧✦✧✦✧✦✧✦✧✦</div>
-    </div>
-
-    <!-- RAINBOW DIVIDER -->
-    <div class="rainbow-divider"></div>
+    <!-- HEADER -->
+    <header id="site-header">
+      <h1 class="header-wordmark">tryl.chat</h1>
+      <div class="header-meta">
+        <span class="online-dot"></span>
+        <span id="online-count">0</span> online
+        ·
+        <span id="visitor-num">0</span> visitors
+      </div>
+    </header>
 
     <!-- MAIN LAYOUT -->
     <div id="main-layout">
-      <!-- SIDEBAR -->
-      <div id="sidebar">
-        <!-- Online Users -->
-        <div class="sidebar-box">
-          <div class="sidebar-box-title">
-            <span class="blink">●</span> Online Now <span class="blink">●</span>
-          </div>
-          <ul id="user-list">
-            <li class="no-users">No one here yet...</li>
-          </ul>
-        </div>
-
-        <!-- Hit Counter -->
-        <div class="sidebar-box">
-          <div class="sidebar-box-title">📊 Visitors</div>
-          <div id="hit-counter">
-            <div class="counter-display">
-              <span id="counter-value">000000</span>
-            </div>
-          </div>
-        </div>
-
-        <!-- Cool Links -->
-        <div class="sidebar-box">
-          <div class="sidebar-box-title">🔗 Cool Links</div>
-          <div class="cool-links">
-            <div class="badge-88x31">🌐 HTML</div>
-            <div class="badge-88x31">☕ Java</div>
-            <div class="badge-88x31">🐱 Neko</div>
-            <div class="badge-88x31">📧 Email</div>
-          </div>
-        </div>
-
-        <!-- Webring -->
-        <div class="sidebar-box">
-          <div class="sidebar-box-title">🔄 WebRing</div>
-          <div class="webring">
-            <span class="webring-link">⬅ Prev</span>
-            <span class="webring-link">🏠 Hub</span>
-            <span class="webring-link">Next ➡</span>
-          </div>
-        </div>
-
-        <!-- Under Construction -->
-        <div class="sidebar-box construction-box">
-          <div class="construction-banner">
-            🚧 UNDER<br>CONSTRUCTION 🚧
-          </div>
-          <div class="blink construction-text">Come back soon!</div>
-        </div>
-      </div>
 
       <!-- CHAT AREA -->
       <div id="chat-area">
-        <div id="chat-header">
-          <span class="blink">💬</span> Chat Room <span class="blink">💬</span>
-          <span class="chat-header-sub">( be cool, be kind )</span>
-        </div>
         <div id="chat-messages">
-          <div class="system-msg welcome-msg">
-            ★═══════════════════════════════════★<br>
-            Welcome to tryl.chat!<br>
-            Rules: Be nice! No spamming!<br>
-            Have fun and make friends! (◕‿◕)<br>
-            ★═══════════════════════════════════★
-          </div>
+          <!-- messages appear here -->
         </div>
         <form id="chat-form">
           <div id="chat-input-area">
-            <input type="text" id="chat-input" placeholder="Type your message..." maxlength="500" autocomplete="off">
-            <button type="submit" class="retro-btn send-btn">Send ✉</button>
+            <input type="text" id="chat-input" placeholder="say something..." maxlength="500" autocomplete="off">
+            <button type="submit" class="btn-send">↑</button>
           </div>
         </form>
       </div>
+
+      <!-- SIDEBAR -->
+      <aside id="sidebar">
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">People</h3>
+          <ul id="user-list">
+            <li class="no-users">no one here yet</li>
+          </ul>
+        </div>
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">Visitors</h3>
+          <div id="hit-counter">
+            <span id="counter-value">0</span>
+          </div>
+        </div>
+      </aside>
+
     </div>
 
-    <!-- RAINBOW DIVIDER -->
-    <div class="rainbow-divider"></div>
-
-    <!-- FOOTER -->
-    <div id="footer">
-      <div class="footer-ascii">
-        <pre>~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~</pre>
-      </div>
-      <div class="footer-badges">
-        <span class="footer-badge">📧 Webmaster</span>
-        <span class="footer-badge">📖 Guestbook</span>
-        <span class="footer-badge">🔙 Back</span>
-      </div>
-      <div class="footer-text">
-        © 2025 tryl.chat. All rights reserved.<br>
-        <span class="rainbow-text">Best viewed at 800x600 with Netscape Navigator</span><br>
-        <span class="blink">★</span> Made with ♥ and HTML <span class="blink">★</span>
-      </div>
-      <div class="footer-ascii">
-        <pre>~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~</pre>
-      </div>
-    </div>
   </div>
 
   <script src="chat.js"></script>
