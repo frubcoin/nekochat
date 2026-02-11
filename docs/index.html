@@ -21,20 +21,13 @@
 
     <div id="login-box">
       <div class="login-wordmark">tryl.chat</div>
-      <!-- STEP 1: WALLET -->
+      <!-- STEP 1: WALLET (Phantom only) -->
       <div id="step-wallet">
-        <p class="login-subtitle">connect an authorized solana wallet</p>
+        <p class="login-subtitle">connect your phantom wallet to continue</p>
         <div class="login-actions">
           <button id="btn-phantom" class="btn-primary" style="background: #AB9FF2; color: #000;">
             Connect Phantom
           </button>
-          <div class="input-group input-group--flush" style="margin-top: 12px;">
-            <input type="text" id="manual-wallet-input" placeholder="enter wallet address manually"
-              class="input-minimal input-minimal--left">
-            <button id="btn-manual-submit" class="btn-icon btn-icon--right" aria-label="Submit wallet">
-              ➔
-            </button>
-          </div>
         </div>
       </div>
 
@@ -74,6 +67,16 @@
     <!-- MAIN LAYOUT -->
     <div id="main-layout">
 
+      <!-- ROOMS SIDEBAR (LEFT) -->
+      <aside id="rooms-sidebar">
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">Rooms</h3>
+          <ul id="room-list">
+            <!-- populated by JS -->
+          </ul>
+        </div>
+      </aside>
+
       <!-- CHAT AREA -->
       <div id="chat-area">
         <!-- PINNED MESSAGE -->
@@ -93,7 +96,7 @@
         </form>
       </div>
 
-      <!-- SIDEBAR -->
+      <!-- SIDEBAR (RIGHT) -->
       <aside id="sidebar">
         <div class="sidebar-section">
           <h3 class="sidebar-title">People</h3>

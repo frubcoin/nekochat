@@ -642,7 +642,75 @@ body {
   opacity: 0.85;
 }
 
-/* ═══ SIDEBAR ═══ */
+/* ═══ ROOMS SIDEBAR (LEFT) ═══ */
+#rooms-sidebar {
+  width: 160px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  padding: 20px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+#room-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.room-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 14px;
+  color: var(--text-secondary);
+  user-select: none;
+  border: 1px solid transparent;
+}
+
+.room-item:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.room-item.active {
+  background: var(--bg-surface);
+  color: var(--text);
+  border-color: var(--border);
+}
+
+.room-item.locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.room-item.locked:hover {
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.room-icon {
+  font-size: 16px;
+  width: 20px;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.room-name {
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* ═══ SIDEBAR (RIGHT) ═══ */
 #sidebar {
   width: 220px;
   flex-shrink: 0;
@@ -809,7 +877,9 @@ body {
 
 /* ═══ RESPONSIVE ═══ */
 @media (max-width: 768px) {
-  #sidebar {
+
+  #sidebar,
+  #rooms-sidebar {
     display: none;
   }
 

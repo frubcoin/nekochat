@@ -6,18 +6,36 @@
 const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const PARTYKIT_HOST = isLocal ? "localhost:1999" : "nekochat.frubcoin.partykit.dev";
 const WS_PROTOCOL = isLocal ? "ws" : "wss";
-const WS_URL = `${WS_PROTOCOL}://${PARTYKIT_HOST}/party/main-lobby`;
+
+// ═══ SOLANA / TOKEN GATING ═══
+const HELIUS_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=cc4ba0bb-9e76-44be-8681-511665f1c262";
+const TOKEN_MINT = "UwU8RVXB69Y6Dcju6cN2Qef6fykkq6UUNpB15rZku6Z";
+
+const ROOMS = [
+    { id: 'main-lobby', name: 'lobby', icon: '✦', gated: false },
+    { id: 'holders-lounge', name: 'holders', icon: '◆', gated: true },
+];
+
+let currentRoom = 'main-lobby';
+let hasToken = false;
+
+function getWsUrl(roomId) {
+    return `${WS_PROTOCOL}://${PARTYKIT_HOST}/party/${roomId}`;
+}
 
 let ws;
 let reconnectTimer = null;
+let isSwitchingRoom = false;
 
-function connectWebSocket() {
-    ws = new WebSocket(WS_URL);
+function connectWebSocket(roomId) {
+    if (!roomId) roomId = currentRoom;
+    const url = getWsUrl(roomId);
+    ws = new WebSocket(url);
 
     ws.addEventListener('open', () => {
-        console.log('connected to tryl.chat');
+        console.log(`connected to ${roomId}`);
         if (currentUsername) {
-            ws.send(JSON.stringify({ type: 'join', username: currentUsername }));
+            ws.send(JSON.stringify({ type: 'join', username: currentUsername, wallet: currentWalletAddress }));
         }
     });
 
@@ -60,12 +78,18 @@ function connectWebSocket() {
                 removeRemoteCursor(data.id);
                 break;
             case 'join-error':
-                alert(data.reason || 'Join failed');
-                // Go back to wallet step
-                DOM.loginForm.classList.add('hidden');
-                DOM.stepWallet.classList.remove('hidden');
-                DOM.loginOverlay.classList.remove('hidden');
-                DOM.chatPage.classList.add('hidden');
+                if (DOM.loginOverlay.classList.contains('hidden')) {
+                    // Already in chat — room switch error
+                    appendSystemMessage({ text: `🔒 ${data.reason || 'Cannot access this room.'}` });
+                    scrollToBottom();
+                    switchRoom('main-lobby');
+                } else {
+                    alert(data.reason || 'Join failed');
+                    DOM.loginForm.classList.add('hidden');
+                    DOM.stepWallet.classList.remove('hidden');
+                    DOM.loginOverlay.classList.remove('hidden');
+                    DOM.chatPage.classList.add('hidden');
+                }
                 break;
             case 'clear-chat':
                 DOM.chatMessages.innerHTML = '';
@@ -75,7 +99,6 @@ function connectWebSocket() {
                 if (data.text) {
                     DOM.pinText.textContent = data.text;
                     DOM.pinnedBanner.classList.remove('hidden');
-                    // Simple animation trigger
                     DOM.pinnedBanner.style.animation = 'none';
                     DOM.pinnedBanner.offsetHeight; // force reflow
                     DOM.pinnedBanner.style.animation = 'glow 1.5s ease-out';
@@ -106,16 +129,16 @@ function connectWebSocket() {
     });
 
     ws.addEventListener('close', () => {
-        appendSystemMessage({ text: 'connection lost — reconnecting...', timestamp: Date.now() });
-        if (!reconnectTimer) {
-            reconnectTimer = setTimeout(() => { reconnectTimer = null; connectWebSocket(); }, 2000);
+        if (!isSwitchingRoom) {
+            appendSystemMessage({ text: 'connection lost — reconnecting...', timestamp: Date.now() });
+        }
+        if (!reconnectTimer && !isSwitchingRoom) {
+            reconnectTimer = setTimeout(() => { reconnectTimer = null; connectWebSocket(currentRoom); }, 2000);
         }
     });
 
     ws.addEventListener('error', () => { });
 }
-
-// connectWebSocket(); initialized at bottom of file
 
 // ═══ DOM ═══
 const DOM = {
@@ -133,9 +156,6 @@ const DOM = {
     loginBox: document.getElementById('login-box'),
     stepWallet: document.getElementById('step-wallet'),
     btnPhantom: document.getElementById('btn-phantom'),
-    manualInput: document.getElementById('manual-wallet-input'),
-    btnManualSubmit: document.getElementById('btn-manual-submit'),
-    btnSkip: document.getElementById('btn-skip-wallet'),
     btnBack: document.getElementById('btn-back-wallet'),
     colorPicker: document.getElementById('color-picker'),
     btnAdminGame: document.getElementById('btn-admin-game'),
@@ -145,6 +165,7 @@ const DOM = {
     gameMessage: document.getElementById('game-message'),
     pinnedBanner: document.getElementById('pinned-banner'),
     pinText: document.getElementById('pin-text'),
+    roomList: document.getElementById('room-list'),
 };
 
 let currentUsername = '';
@@ -166,12 +187,108 @@ const COMMANDS = [
     '/unpin'
 ];
 
-// ═══ WALLET FLOW ═══
+// ═══ TOKEN CHECK ═══
+async function checkTokenBalance(walletAddress) {
+    try {
+        const response = await fetch(HELIUS_RPC_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'getTokenAccountsByOwner',
+                params: [
+                    walletAddress,
+                    { mint: TOKEN_MINT },
+                    { encoding: 'jsonParsed' }
+                ]
+            })
+        });
+        const data = await response.json();
+        if (data.result && data.result.value && data.result.value.length > 0) {
+            for (const account of data.result.value) {
+                const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
+                if (amount > 0) return true;
+            }
+        }
+        return false;
+    } catch (err) {
+        console.error('Token check failed:', err);
+        return false;
+    }
+}
+
+// ═══ ROOMS ═══
+function renderRoomList() {
+    if (!DOM.roomList) return;
+    DOM.roomList.innerHTML = '';
+
+    ROOMS.forEach(room => {
+        const li = document.createElement('li');
+        li.className = 'room-item' + (room.id === currentRoom ? ' active' : '');
+
+        const isLocked = room.gated && !hasToken;
+        li.innerHTML = `
+            <span class="room-icon">${isLocked ? '🔒' : room.icon}</span>
+            <span class="room-name">${room.name}</span>
+        `;
+
+        if (isLocked) {
+            li.classList.add('locked');
+            li.title = 'Hold the required token to access';
+        }
+
+        li.addEventListener('click', () => {
+            if (isLocked) {
+                appendSystemMessage({ text: '🔒 You need to hold the token to access this room.' });
+                scrollToBottom();
+                return;
+            }
+            if (room.id !== currentRoom) {
+                switchRoom(room.id);
+            }
+        });
+
+        DOM.roomList.appendChild(li);
+    });
+}
+
+function switchRoom(roomId) {
+    if (roomId === currentRoom) return;
+    isSwitchingRoom = true;
+    currentRoom = roomId;
+    DOM.chatMessages.innerHTML = '';
+
+    // Clear reconnect timer
+    if (reconnectTimer) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+
+    // Close existing connection
+    if (ws) {
+        ws.close();
+    }
+
+    // Connect to new room after brief delay for clean close
+    setTimeout(() => {
+        isSwitchingRoom = false;
+        connectWebSocket(roomId);
+        renderRoomList();
+    }, 150);
+}
+
+// ═══ WALLET FLOW (Phantom only) ═══
 DOM.btnPhantom.addEventListener('click', async () => {
     if (window.solana && window.solana.isPhantom) {
         try {
             const resp = await window.solana.connect();
             currentWalletAddress = resp.publicKey.toString();
+
+            // Check token balance for gated rooms
+            hasToken = await checkTokenBalance(currentWalletAddress);
+            renderRoomList();
+
             goToStep2();
         } catch (err) {
             console.error(err);
@@ -182,27 +299,6 @@ DOM.btnPhantom.addEventListener('click', async () => {
         window.open('https://phantom.app/', '_blank');
     }
 });
-
-function submitManualWallet() {
-    const val = DOM.manualInput.value.trim();
-    if (val) {
-        currentWalletAddress = val;
-        goToStep2();
-    }
-}
-
-DOM.manualInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submitManualWallet();
-});
-
-DOM.btnManualSubmit.addEventListener('click', submitManualWallet);
-
-if (DOM.btnSkip) {
-    DOM.btnSkip.addEventListener('click', () => {
-        currentWalletAddress = null;
-        goToStep2();
-    });
-}
 
 if (DOM.btnBack) {
     DOM.btnBack.addEventListener('click', () => {
@@ -233,11 +329,12 @@ DOM.loginForm.addEventListener('submit', (e) => {
     DOM.loginOverlay.classList.add('hidden');
     DOM.chatPage.classList.remove('hidden');
     DOM.chatInput.focus();
+    renderRoomList();
 });
 
 // ═══ COLOR PICKER ═══
 DOM.colorPicker.addEventListener('change', (e) => {
-    if (ws.readyState === WebSocket.OPEN) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
             type: 'update-color',
             color: e.target.value
@@ -288,7 +385,7 @@ DOM.chatForm.addEventListener('submit', (e) => {
     historyIndex = -1;
     currentDraft = '';
 
-    if (ws.readyState === WebSocket.OPEN) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'chat', text: msg }));
     }
     DOM.chatInput.value = '';
@@ -402,7 +499,7 @@ document.addEventListener('mousemove', (e) => {
     // Send cursor to others (every 50ms)
     if (currentUsername && now - cursorSendThrottle >= 50) {
         cursorSendThrottle = now;
-        if (ws.readyState === WebSocket.OPEN) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
                 type: 'cursor',
                 x: (e.clientX / window.innerWidth) * 100,
@@ -460,7 +557,7 @@ function removeRemoteCursor(id) {
 // Admin Trigger (only works if element exists/visible)
 if (DOM.btnAdminGame) {
     DOM.btnAdminGame.addEventListener('click', () => {
-        if (ws.readyState === WebSocket.OPEN) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
             const rounds = DOM.roundSelect ? DOM.roundSelect.value : "1";
             ws.send(JSON.stringify({ type: 'admin-start-game', rounds }));
         } else {
@@ -473,7 +570,7 @@ if (DOM.btnAdminGame) {
 if (DOM.gameOverlay) {
     DOM.gameOverlay.addEventListener('mousedown', () => {
         // Simple state check (server handles DQ too)
-        if (ws.readyState === WebSocket.OPEN) {
+        if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'game-click' }));
         }
     });
@@ -547,4 +644,4 @@ function showGameOverlay(state, data) {
 }
 
 // Start connection after DOM and listeners are ready
-connectWebSocket();
+connectWebSocket('main-lobby');

@@ -15,6 +15,10 @@ function getRandomColor() {
 const MAX_HISTORY = 200;
 const HISTORY_ON_JOIN = 100;
 
+// Token gating
+const TOKEN_MINT = "UwU8RVXB69Y6Dcju6cN2Qef6fykkq6UUNpB15rZku6Z";
+const GATED_ROOMS = ["holders-lounge"];
+
 // Rate limit: 5 messages per 10 seconds
 const RATE_LIMIT_WINDOW = 10000;
 const MAX_MESSAGES_PER_WINDOW = 5;
@@ -45,6 +49,38 @@ export default class NekoChat implements Party.Server {
       envMembers.includes(wallet) ||
       storedMembers.includes(wallet)
     );
+  }
+
+  private async verifyTokenHolder(wallet: string): Promise<boolean> {
+    const HELIUS_API_KEY = (this.room.env.HELIUS_API_KEY as string) || "cc4ba0bb-9e76-44be-8681-511665f1c262";
+    const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
+    try {
+      const response = await fetch(HELIUS_RPC, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "getTokenAccountsByOwner",
+          params: [
+            wallet,
+            { mint: TOKEN_MINT },
+            { encoding: "jsonParsed" }
+          ]
+        })
+      });
+      const data: any = await response.json();
+      if (data.result?.value?.length > 0) {
+        for (const account of data.result.value) {
+          const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
+          if (amount > 0) return true;
+        }
+      }
+      return false;
+    } catch (err) {
+      console.error("Token verification failed:", err);
+      return false;
+    }
   }
   // Track message timestamps for rate limiting
   rateLimits = new Map<string, number[]>();
@@ -119,6 +155,19 @@ export default class NekoChat implements Party.Server {
           reason: "Unauthorized. Your wallet is not on the whitelist."
         }));
         return;
+      }
+
+      // Token gating for holders room
+      const isGatedRoom = GATED_ROOMS.includes(this.room.id);
+      if (isGatedRoom) {
+        const holdsToken = await this.verifyTokenHolder(wallet);
+        if (!holdsToken) {
+          sender.send(JSON.stringify({
+            type: "join-error",
+            reason: "You must hold the required token to access this room."
+          }));
+          return;
+        }
       }
 
       console.log(`[JOIN] User: ${username}`);
