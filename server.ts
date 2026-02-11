@@ -34,7 +34,7 @@ export default class NekoChat implements Party.Server {
   gameState: GameState = "IDLE";
   gameStartTime: number = 0;
   dqUsers = new Set<string>();
-  gameTimer: NodeJS.Timeout | null = null;
+  gameTimer: unknown | null = null;
 
   constructor(readonly room: Party.Room) { }
 
@@ -130,23 +130,7 @@ export default class NekoChat implements Party.Server {
     // ═══ GAME: START (Admin Only) ═══
     if (parsed.type === "admin-start-game") {
       const state = sender.state as any;
-      console.log(`[GAME] Received start command from ${sender.id}`);
-      console.log(`[GAME] State:`, JSON.stringify(state));
-
-      if (!state?.isAdmin) {
-        sender.send(JSON.stringify({
-          type: "system-message",
-          text: `DEBUG: Admin check failed. State: ${JSON.stringify(state)}`,
-          timestamp: Date.now()
-        }));
-        return;
-      }
-
-      sender.send(JSON.stringify({
-        type: "system-message",
-        text: `DEBUG: Admin check passed. Starting game...`,
-        timestamp: Date.now()
-      }));
+      if (!state?.isAdmin) return;
 
       // Reset Game State
       this.gameState = "READY";
@@ -156,7 +140,7 @@ export default class NekoChat implements Party.Server {
       // Random delay 2000 - 10000 ms
       const delay = Math.floor(Math.random() * 8000) + 2000;
 
-      if (this.gameTimer) clearTimeout(this.gameTimer);
+      if (this.gameTimer) clearTimeout(this.gameTimer as unknown as number);
       this.gameTimer = setTimeout(() => {
         this.gameState = "GO";
         this.gameStartTime = Date.now();
@@ -178,7 +162,7 @@ export default class NekoChat implements Party.Server {
         const activePlayers = [...this.room.getConnections()].filter(c => (c.state as any)?.username);
         if (this.dqUsers.size >= activePlayers.length) {
           // Cancel the game
-          if (this.gameTimer) clearTimeout(this.gameTimer);
+          if (this.gameTimer) clearTimeout(this.gameTimer as unknown as number);
           this.gameState = "IDLE";
           this.room.broadcast(JSON.stringify({
             type: "system-message",
