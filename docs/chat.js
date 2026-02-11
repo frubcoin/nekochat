@@ -67,6 +67,22 @@ function connectWebSocket() {
                 DOM.loginOverlay.classList.remove('hidden');
                 DOM.chatPage.classList.add('hidden');
                 break;
+            case 'clear-chat':
+                DOM.chatMessages.innerHTML = '';
+                appendSystemMessage({ text: '✦ Chat cleared by admin ✦' });
+                break;
+            case 'pinned-update':
+                if (data.text) {
+                    DOM.pinText.textContent = data.text;
+                    DOM.pinnedBanner.classList.remove('hidden');
+                    // Simple animation trigger
+                    DOM.pinnedBanner.style.animation = 'none';
+                    DOM.pinnedBanner.offsetHeight; // force reflow
+                    DOM.pinnedBanner.style.animation = 'glow 1.5s ease-out';
+                } else {
+                    DOM.pinnedBanner.classList.add('hidden');
+                }
+                break;
             // ═══ GAME EVENTS ═══
             case 'game-ready':
                 if (currentUsername) showGameOverlay('ready', data);
@@ -126,6 +142,8 @@ const DOM = {
     roundSelect: document.getElementById('round-select'),
     gameOverlay: document.getElementById('game-overlay'),
     gameMessage: document.getElementById('game-message'),
+    pinnedBanner: document.getElementById('pinned-banner'),
+    pinText: document.getElementById('pin-text'),
 };
 
 let currentUsername = '';
@@ -140,7 +158,11 @@ const COMMANDS = [
     '/whitelist',
     '/whitelist add',
     '/whitelist bulk',
-    '/whitelist remove'
+    '/whitelist remove',
+    '/mute',
+    '/clear',
+    '/pin',
+    '/unpin'
 ];
 
 // ═══ WALLET FLOW ═══

@@ -57,10 +57,16 @@ export default class NekoChat implements Party.Server {
   totalRounds: number = 1;
   currentRound: number = 0;
   roundWins = new Map<string, number>(); // username -> wins
+  mutedUsers = new Set<string>(); // usernames
+  pinnedMessage: string | null = null;
 
   constructor(readonly room: Party.Room) { }
 
   async onStart() {
+    // Initialize pinned message
+    const pinned = await this.room.storage.get<string>("pinnedMessage");
+    if (pinned) this.pinnedMessage = pinned;
+
     // Initialize visitor count if not set
     const count = await this.room.storage.get("realVisitorCount");
     if (count === undefined) {
@@ -78,8 +84,11 @@ export default class NekoChat implements Party.Server {
     visitorCount++;
     await this.room.storage.put("realVisitorCount", visitorCount);
 
-    // Send visitor count to the new connection
+    // Send visitor count & pinned message to the new connection
     conn.send(JSON.stringify({ type: "visitor-count", count: visitorCount }));
+    if (this.pinnedMessage) {
+      conn.send(JSON.stringify({ type: "pinned-update", text: this.pinnedMessage }));
+    }
   }
 
   async onMessage(message: string, sender: Party.Connection) {
@@ -323,7 +332,35 @@ export default class NekoChat implements Party.Server {
           stored = stored.filter((a: string) => a !== val);
           await this.room.storage.put("storedMemberWallets", stored);
           sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed ${val} from whitelist.` }));
+        } else if (subCommand === "mute") {
+          if (this.mutedUsers.has(val)) {
+            this.mutedUsers.delete(val);
+            sender.send(JSON.stringify({ type: "system-message", text: `🔊 Unmuted ${val}.` }));
+          } else {
+            this.mutedUsers.add(val);
+            sender.send(JSON.stringify({ type: "system-message", text: `🔇 Muted ${val}.` }));
+          }
+        } else if (subCommand === "clear") {
+          await this.room.storage.delete("chatHistory");
+          this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
+          sender.send(JSON.stringify({ type: "system-message", text: "🧼 Chat history cleared." }));
+        } else if (subCommand === "pin") {
+          this.pinnedMessage = val;
+          await this.room.storage.put("pinnedMessage", val);
+          this.room.broadcast(JSON.stringify({ type: "pinned-update", text: val }));
+          sender.send(JSON.stringify({ type: "system-message", text: "📌 Message pinned." }));
+        } else if (subCommand === "unpin") {
+          this.pinnedMessage = null;
+          await this.room.storage.delete("pinnedMessage");
+          this.room.broadcast(JSON.stringify({ type: "pinned-update", text: null }));
+          sender.send(JSON.stringify({ type: "system-message", text: "📍 Message unpinned." }));
         }
+        return;
+      }
+
+      // Check if muted
+      if (this.mutedUsers.has(username)) {
+        sender.send(JSON.stringify({ type: "system-message", text: "🤐 You are muted and cannot chat." }));
         return;
       }
 
