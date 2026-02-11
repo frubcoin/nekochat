@@ -64,16 +64,15 @@ function connectWebSocket(roomId = currentRoomId) {
                 removeRemoteCursor(data.id);
                 break;
             case 'join-error':
-                alert(data.reason || 'Join failed');
-                // If it was a room switch error, switch back to lobby
+                appendSystemMessage({ text: `🚫 ${data.reason || 'Access denied'}` });
+                // Revert UI if it was a room switch
                 if (currentRoomId !== 'main-lobby') {
-                    switchRoom('main-lobby');
-                } else {
-                    // Critical error in lobby, show login
-                    DOM.loginForm.classList.add('hidden');
-                    DOM.stepWallet.classList.remove('hidden');
-                    DOM.loginOverlay.classList.remove('hidden');
-                    DOM.chatPage.classList.add('hidden');
+                    // Force UI back to lobby but don't call switchRoom (to avoid loop)
+                    currentRoomId = 'main-lobby';
+                    document.querySelectorAll('.room-item').forEach(item => {
+                        item.classList.toggle('active', item.dataset.room === 'main-lobby');
+                    });
+                    connectWebSocket('main-lobby');
                 }
                 break;
             case 'clear-chat':
@@ -302,7 +301,6 @@ function formatTime(ts) {
     h = h % 12 || 12;
     return `${h}:${m} ${ampm}`;
 }
-// ═══ ROOM SWITCHING ═══
 function switchRoom(roomId) {
     if (roomId === currentRoomId) return;
 
@@ -313,7 +311,6 @@ function switchRoom(roomId) {
 
     // Clear messages for new room
     DOM.chatMessages.innerHTML = '';
-    appendSystemMessage({ text: `✦ Switching to ${roomId}... ✦` });
 
     // Reconnect
     connectWebSocket(roomId);
