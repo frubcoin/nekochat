@@ -1,5 +1,4 @@
 import type * as Party from "partykit/server";
-import bs58 from "bs58";
 
 // Retro color palette for usernames
 const RETRO_COLORS = [
@@ -19,16 +18,6 @@ const HISTORY_ON_JOIN = 100;
 // Rate limit: 5 messages per 10 seconds
 const RATE_LIMIT_WINDOW = 10000;
 const MAX_MESSAGES_PER_WINDOW = 5;
-
-// Gating Configuration
-const GATED_ROOMS = {
-  "holder-lounge": {
-    mint: "Gh6cBL11RRwVYHUyoGFXdYJXhWW1HETnPriNZN71pump",
-    minBalance: 1
-  }
-};
-
-const SOLANA_RPC = "https://api.mainnet-beta.solana.com";
 
 type GameState = "IDLE" | "READY" | "GO";
 
@@ -56,68 +45,6 @@ export default class NekoChat implements Party.Server {
       envMembers.includes(wallet) ||
       storedMembers.includes(wallet)
     );
-  }
-
-  private async getTokenBalance(wallet: string, mint: string): Promise<number> {
-    try {
-      const response = await fetch(SOLANA_RPC, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "getTokenAccountsByOwner",
-          params: [
-            wallet,
-            { mint },
-            { encoding: "jsonParsed", commitment: "confirmed" }
-          ]
-        })
-      });
-      const data = await response.json() as any;
-      console.log(`[BALANCE] Response for ${wallet}:`, JSON.stringify(data));
-      const accounts = data?.result?.value || [];
-      if (accounts.length === 0) return 0;
-
-      // Sum balances across all accounts for this token
-      let totalValue = 0;
-      for (const account of accounts) {
-        totalValue += account.account.data.parsed.info.tokenAmount.uiAmount || 0;
-      }
-      console.log(`[BALANCE] Total for ${wallet} on ${mint}: ${totalValue}`);
-      return totalValue;
-    } catch (err) {
-      console.error("Balance check error for wallet", wallet, ":", err);
-      return 0;
-    }
-  }
-
-  private async verifySignature(wallet: string, signature: string): Promise<boolean> {
-    try {
-      const message = "Sign this message to verify ownership of this wallet for tryl.chat.";
-      const msgUint8 = new TextEncoder().encode(message);
-      const sigUint8 = new Uint8Array(bs58.decode(signature));
-      const pubKeyUint8 = new Uint8Array(bs58.decode(wallet));
-
-      // Create an Ed25519 KeyObject from the public key
-      const key = await crypto.subtle.importKey(
-        "raw",
-        pubKeyUint8,
-        { name: "Ed25519", namedCurve: "Ed25519" },
-        true,
-        ["verify"]
-      );
-
-      return await crypto.subtle.verify(
-        "Ed25519",
-        key,
-        sigUint8,
-        msgUint8
-      );
-    } catch (err) {
-      console.error("[AUTH] Signature verification error:", err);
-      return false;
-    }
   }
   // Track message timestamps for rate limiting
   rateLimits = new Map<string, number[]>();
@@ -181,55 +108,16 @@ export default class NekoChat implements Party.Server {
         .trim()
         .substring(0, 20);
       const wallet = parsed.wallet || null;
-      const signature = parsed.signature || null;
-
-      console.log(`[JOIN] Room: ${this.room.id}, User: ${username}, Wallet: ${wallet}, Signature: ${signature ? signature.substring(0, 10) + "..." : "MISSING"}`);
 
       if (!username) return;
 
-      // 1. Signature Verification (if wallet is provided)
-      if (wallet && !signature) {
-        sender.send(JSON.stringify({ type: "join-error", reason: "Signature required for wallet verification." }));
-        return;
-      }
-
-      if (wallet && signature) {
-        const isValid = await this.verifySignature(wallet, signature);
-        if (!isValid) {
-          console.log(`[AUTH] Invalid signature for wallet: ${wallet}`);
-          sender.send(JSON.stringify({ type: "join-error", reason: "Invalid wallet signature. Please try again." }));
-          return;
-        }
-      }
-
-      // 2. Room Access Authorization
+      // Whitelist Check
       const whitelisted = await this.isWhitelisted(wallet || "");
-      const roomId = this.room.id;
-      const gatedConfig = GATED_ROOMS[roomId as keyof typeof GATED_ROOMS];
-
-      let hasAccess = whitelisted;
-
-      // If not whitelisted, check token balance if we have a verified wallet
-      if (!hasAccess && wallet && signature) {
-        // Primary gating token ($Gh6c)
-        const primaryMint = "Gh6cBL11RRwVYHUyoGFXdYJXhWW1HETnPriNZN71pump";
-        const targetMint = gatedConfig ? gatedConfig.mint : primaryMint;
-
-        const balance = await this.getTokenBalance(wallet, targetMint);
-        if (balance >= 1) {
-          hasAccess = true;
-          console.log(`[AUTH] Access granted via Token balance for ${wallet} in room ${roomId} (Balance: ${balance})`);
-        }
-      }
-
-      // Final decision
-      if (!hasAccess) {
-        const reason = gatedConfig
-          ? `Lounge Access Denied. This room requires holding the $Gh6c token.`
-          : `Unauthorized. Your wallet is not on the whitelist and doesn't hold required tokens.`;
-
-        console.log(`[AUTH] Access DENIED for ${wallet || "Guest"} in ${roomId}. Reason: ${reason}`);
-        sender.send(JSON.stringify({ type: "join-error", reason }));
+      if (!wallet || !whitelisted) {
+        sender.send(JSON.stringify({
+          type: "join-error",
+          reason: "Unauthorized. Your wallet is not on the whitelist."
+        }));
         return;
       }
 

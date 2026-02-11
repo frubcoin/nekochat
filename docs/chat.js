@@ -8,26 +8,16 @@ const PARTYKIT_HOST = isLocal ? "localhost:1999" : "nekochat.frubcoin.partykit.d
 const WS_PROTOCOL = isLocal ? "ws" : "wss";
 const WS_URL = `${WS_PROTOCOL}://${PARTYKIT_HOST}/party/main-lobby`;
 
-let currentRoomId = 'main-lobby';
 let ws;
 let reconnectTimer = null;
 
-function connectWebSocket(roomId = currentRoomId) {
-    if (ws) ws.close();
-    currentRoomId = roomId;
-    const url = `${WS_PROTOCOL}://${PARTYKIT_HOST}/party/${roomId}`;
-    ws = new WebSocket(url);
+function connectWebSocket() {
+    ws = new WebSocket(WS_URL);
 
     ws.addEventListener('open', () => {
-        console.log(`connected to tryl.chat room: ${currentRoomId}`);
+        console.log('connected to tryl.chat');
         if (currentUsername) {
-            console.log(`[JOIN] Sending join to ${currentRoomId} with signature: ${currentSignature ? currentSignature.substring(0, 10) + '...' : 'NONE'}`);
-            ws.send(JSON.stringify({
-                type: 'join',
-                username: currentUsername,
-                wallet: currentWalletAddress,
-                signature: currentSignature
-            }));
+            ws.send(JSON.stringify({ type: 'join', username: currentUsername }));
         }
     });
 
@@ -70,16 +60,12 @@ function connectWebSocket(roomId = currentRoomId) {
                 removeRemoteCursor(data.id);
                 break;
             case 'join-error':
-                appendSystemMessage({ text: `🚫 ${data.reason || 'Access denied'}` });
-                // Revert UI if it was a room switch
-                if (currentRoomId !== 'main-lobby') {
-                    // Force UI back to lobby but don't call switchRoom (to avoid loop)
-                    currentRoomId = 'main-lobby';
-                    document.querySelectorAll('.room-item').forEach(item => {
-                        item.classList.toggle('active', item.dataset.room === 'main-lobby');
-                    });
-                    connectWebSocket('main-lobby');
-                }
+                alert(data.reason || 'Join failed');
+                // Go back to wallet step
+                DOM.loginForm.classList.add('hidden');
+                DOM.stepWallet.classList.remove('hidden');
+                DOM.loginOverlay.classList.remove('hidden');
+                DOM.chatPage.classList.add('hidden');
                 break;
             case 'clear-chat':
                 DOM.chatMessages.innerHTML = '';
@@ -143,15 +129,15 @@ const DOM = {
     userList: document.getElementById('user-list'),
     onlineCount: document.getElementById('online-count'),
     guestCount: document.getElementById('guest-count'),
-    roomList: document.getElementById('room-list'),
     counterValue: document.getElementById('counter-value'),
     loginBox: document.getElementById('login-box'),
     stepWallet: document.getElementById('step-wallet'),
     btnPhantom: document.getElementById('btn-phantom'),
     manualInput: document.getElementById('manual-wallet-input'),
     btnManualSubmit: document.getElementById('btn-manual-submit'),
+    btnSkip: document.getElementById('btn-skip-wallet'),
     btnBack: document.getElementById('btn-back-wallet'),
-    btnGuestLogin: document.getElementById('btn-guest-login'),
+    colorPicker: document.getElementById('color-picker'),
     btnAdminGame: document.getElementById('btn-admin-game'),
     adminPanel: document.getElementById('admin-panel'),
     roundSelect: document.getElementById('round-select'),
@@ -159,13 +145,10 @@ const DOM = {
     gameMessage: document.getElementById('game-message'),
     pinnedBanner: document.getElementById('pinned-banner'),
     pinText: document.getElementById('pin-text'),
-    cursorOverlay: document.getElementById('cursor-overlay'),
 };
 
 let currentUsername = '';
 let currentWalletAddress = null;
-let currentSignature = null;
-const SIGN_MESSAGE = "Sign this message to verify ownership of this wallet for tryl.chat.";
 
 // Chat history tracking
 const sentHistory = [];
@@ -185,36 +168,18 @@ const COMMANDS = [
 
 // ═══ WALLET FLOW ═══
 DOM.btnPhantom.addEventListener('click', async () => {
-    // Detect any available Solana provider
-    const provider = window.solana || window.solflare || window.backpack;
-
-    if (!provider) {
-        alert('No Solana wallet found! Please install Phantom or Solflare.');
+    if (window.solana && window.solana.isPhantom) {
+        try {
+            const resp = await window.solana.connect();
+            currentWalletAddress = resp.publicKey.toString();
+            goToStep2();
+        } catch (err) {
+            console.error(err);
+            alert('Connection failed or rejected');
+        }
+    } else {
+        alert('Phantom wallet not found! Please install it.');
         window.open('https://phantom.app/', '_blank');
-        return;
-    }
-
-    try {
-        const resp = await provider.connect();
-        const wallet = resp.publicKey.toString();
-
-        // Use generic signMessage if available
-        const encodedMessage = new TextEncoder().encode(SIGN_MESSAGE);
-        const signedMessage = await provider.signMessage(encodedMessage, "utf8");
-
-        currentWalletAddress = wallet;
-
-        // bs58 handling
-        const encoder = window.bs58;
-        if (!encoder) throw new Error('bs58 library not loaded');
-
-        currentSignature = encoder.encode(signedMessage.signature);
-        console.log('[AUTH] Verified wallet:', wallet);
-
-        goToStep2();
-    } catch (err) {
-        console.error('[AUTH] Wallet connection failed:', err);
-        alert(`Verification failed: ${err.message || 'Signature rejected'}`);
     }
 });
 
@@ -222,20 +187,19 @@ function submitManualWallet() {
     const val = DOM.manualInput.value.trim();
     if (val) {
         currentWalletAddress = val;
-        currentSignature = null; // No signature for manual entry by default
         goToStep2();
     }
 }
 
-DOM.btnManualSubmit.addEventListener('click', submitManualWallet);
 DOM.manualInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitManualWallet();
 });
 
-if (DOM.btnGuestLogin) {
-    DOM.btnGuestLogin.addEventListener('click', () => {
+DOM.btnManualSubmit.addEventListener('click', submitManualWallet);
+
+if (DOM.btnSkip) {
+    DOM.btnSkip.addEventListener('click', () => {
         currentWalletAddress = null;
-        currentSignature = null;
         goToStep2();
     });
 }
@@ -259,17 +223,26 @@ DOM.loginForm.addEventListener('submit', (e) => {
     const name = DOM.usernameInput.value.trim();
     if (!name) return;
     currentUsername = name;
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
             type: 'join',
             username: name,
-            wallet: currentWalletAddress,
-            signature: currentSignature
+            wallet: currentWalletAddress
         }));
     }
     DOM.loginOverlay.classList.add('hidden');
     DOM.chatPage.classList.remove('hidden');
     DOM.chatInput.focus();
+});
+
+// ═══ COLOR PICKER ═══
+DOM.colorPicker.addEventListener('change', (e) => {
+    if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'update-color',
+            color: e.target.value
+        }));
+    }
 });
 
 // ═══ SEND ═══
@@ -315,7 +288,7 @@ DOM.chatForm.addEventListener('submit', (e) => {
     historyIndex = -1;
     currentDraft = '';
 
-    if (ws && ws.readyState === WebSocket.OPEN) {
+    if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'chat', text: msg }));
     }
     DOM.chatInput.value = '';
@@ -331,30 +304,7 @@ function formatTime(ts) {
     h = h % 12 || 12;
     return `${h}:${m} ${ampm}`;
 }
-function switchRoom(roomId) {
-    if (roomId === currentRoomId) return;
 
-    // Update UI
-    document.querySelectorAll('.room-item').forEach(item => {
-        item.classList.toggle('active', item.dataset.room === roomId);
-    });
-
-    // Clear messages for new room
-    DOM.chatMessages.innerHTML = '';
-
-    // Reconnect
-    connectWebSocket(roomId);
-}
-
-// Room list delegation
-DOM.roomList.addEventListener('click', (e) => {
-    const item = e.target.closest('.room-item');
-    if (item && item.dataset.room) {
-        switchRoom(item.dataset.room);
-    }
-});
-
-// ═══ CHAT ═══
 function appendChatMessage(data) {
     const div = document.createElement('div');
     div.className = 'chat-msg';
@@ -445,11 +395,7 @@ document.addEventListener('mousemove', (e) => {
         dot.style.left = e.clientX + 'px';
         dot.style.top = e.clientY + 'px';
         dot.style.color = '#444';
-        if (DOM.cursorOverlay) {
-            DOM.cursorOverlay.appendChild(dot);
-        } else {
-            document.body.appendChild(dot);
-        }
+        document.body.appendChild(dot);
         setTimeout(() => dot.remove(), 600);
     }
 
@@ -479,11 +425,7 @@ function updateRemoteCursor(data) {
             <span class="remote-cursor-dot"></span>
             <span class="remote-cursor-label"></span>
         `;
-        if (DOM.cursorOverlay) {
-            DOM.cursorOverlay.appendChild(el);
-        } else {
-            document.body.appendChild(el);
-        }
+        document.body.appendChild(el);
         cursor = { el, timeout: null };
         remoteCursors[data.id] = cursor;
     }

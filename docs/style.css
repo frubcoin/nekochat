@@ -82,7 +82,7 @@ body {
   bottom: -50%;
   width: 200%;
   height: 200vh;
-  background: transparent url('https://assets.iceable.com/img/noise-transparent.png') repeat 0 0;
+  background: transparent url('http://assets.iceable.com/img/noise-transparent.png') repeat 0 0;
   background-repeat: repeat;
   animation: bg-animation .2s infinite;
   opacity: .9;
@@ -474,14 +474,6 @@ body {
   min-height: 0;
 }
 
-/* ═══ MAIN LAYOUT ═══ */
-#main-layout {
-  display: grid;
-  grid-template-columns: 200px 1fr 200px;
-  min-height: calc(100vh - 73px);
-  background: var(--bg);
-}
-
 /* ═══ CHAT AREA ═══ */
 #chat-area {
   flex: 1;
@@ -636,91 +628,48 @@ body {
   height: 44px;
   display: flex;
   align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: opacity 0.2s;
 }
 
-/* ═══ SIDEBARS ═══ */
-#room-sidebar,
-#info-sidebar {
-  background: var(--bg-elevated);
-  border-right: 1px solid var(--border);
-  padding: 20px 0;
+.btn-send:hover {
+  opacity: 0.85;
+}
+
+/* ═══ SIDEBAR ═══ */
+#sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  padding: 20px;
   display: flex;
   flex-direction: column;
-}
-
-#info-sidebar {
-  border-right: none;
-  border-left: 1px solid var(--border);
-}
-
-.sidebar-section {
-  margin-bottom: 24px;
+  gap: 24px;
+  overflow-y: auto;
 }
 
 .sidebar-title {
-  padding: 0 20px;
   font-size: 11px;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  letter-spacing: 1px;
-  margin-bottom: 12px;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--text-muted);
+  margin-bottom: 12px;
 }
 
-/* ═══ ROOMS ═══ */
-#room-list {
-  list-style: none;
-}
-
-.room-item {
-  display: flex;
-  align-items: center;
-  padding: 10px 20px;
-  gap: 12px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  font-size: 14px;
-  border-left: 3px solid transparent;
-  transition: 0.2s;
-}
-
-.room-item:hover {
-  background: var(--bg-hover);
-  color: var(--text);
-}
-
-.room-item.active {
-  background: var(--bg-hover);
-  color: var(--accent);
-  border-left-color: var(--accent);
-  font-weight: 500;
-}
-
-.room-icon {
-  font-size: 16px;
-  opacity: 0.7;
-  width: 20px;
-  text-align: center;
-}
-
-.room-badge {
-  background: rgba(var(--accent-rgb), 0.1);
-  color: var(--accent);
-  font-size: 9px;
-  padding: 2px 5px;
-  border-radius: 4px;
-  margin-left: auto;
-  font-weight: 700;
-}
-
-/* ═══ USER LIST ═══ */
 #user-list {
   list-style: none;
 }
 
 #user-list li {
-  padding: 6px 20px;
-  font-size: 13px;
+  padding: 6px 0;
+  font-size: 14px;
   display: flex;
   align-items: center;
   gap: 8px;
