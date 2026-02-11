@@ -175,6 +175,27 @@ export default class NekoChat implements Party.Server {
       );
     }
 
+    if (parsed.type === "set-color") {
+      const state = sender.state as any;
+      if (!state?.username) return;
+
+      const newColor = parsed.color;
+      if (!newColor) return;
+
+      // Update state
+      sender.setState({ ...state, color: newColor });
+
+      // Persist
+      const userColors = (await this.room.storage.get("userColors") as Record<string, string>) || {};
+      userColors[state.username] = newColor;
+      await this.room.storage.put("userColors", userColors);
+
+      // Broadcast updated user list
+      await this.broadcastUserList();
+
+      // Announce change? No, too noisy. Just update list and future messages.
+    }
+
     // Cursor position — relay to everyone else (no persistence)
     if (parsed.type === "cursor") {
       const state = sender.state as any;

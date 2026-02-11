@@ -42,11 +42,7 @@
       <form id="login-form" class="hidden">
         <p class="login-subtitle">enter a name to start chatting</p>
         <div class="login-actions">
-          <div class="input-group">
-            <input type="text" id="username-input" maxlength="20" placeholder="your name" autocomplete="off">
-            <input type="color" id="color-input" value="#ffffff" title="Pick your color"
-              style="height: 44px; width: 44px; padding: 0; border: none; background: none; cursor: pointer;">
-          </div>
+          <input type="text" id="username-input" maxlength="20" placeholder="your name" autocomplete="off">
           <button type="submit" class="btn-primary">Join →</button>
           <button type="button" id="btn-back-wallet" class="btn-text" style="font-size: 12px; margin-top: 8px;">←
             back</button>
@@ -81,6 +77,9 @@
         </div>
         <form id="chat-form">
           <div id="chat-input-area">
+            <label id="color-btn" title="Change color">
+              <input type="color" id="chat-color-input">
+            </label>
             <input type="text" id="chat-input" placeholder="say something..." maxlength="500" autocomplete="off">
             <button type="submit" class="btn-send">↑</button>
           </div>
