@@ -31,7 +31,8 @@ function connectWebSocket() {
                 scrollToBottom();
                 break;
             case 'admin-mode':
-                if (btnAdminGame) btnAdminGame.classList.remove('hidden');
+                const adminPanel = document.getElementById('admin-panel');
+                if (adminPanel) adminPanel.classList.remove('hidden');
                 break;
             case 'system-message':
                 appendSystemMessage(data);
@@ -73,6 +74,9 @@ function connectWebSocket() {
                 break;
             case 'game-cancel':
                 showGameOverlay('cancel');
+                break;
+            case 'game-series-end':
+                showGameOverlay('series-end', data);
                 break;
         }
     });
@@ -353,7 +357,9 @@ const gameMessage = document.getElementById('game-message');
 if (btnAdminGame) {
     btnAdminGame.addEventListener('click', () => {
         if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'admin-start-game' }));
+            const roundSelect = document.getElementById('round-select');
+            const rounds = roundSelect ? roundSelect.value : "1";
+            ws.send(JSON.stringify({ type: 'admin-start-game', rounds }));
         } else {
             console.error('WebSocket not open');
         }
@@ -376,7 +382,8 @@ function showGameOverlay(state, data) {
 
     if (state === 'ready') {
         gameOverlay.classList.add('state-ready');
-        gameMessage.textContent = "WAIT FOR IT...";
+        const roundText = data?.totalRounds > 1 ? `<div style="font-size: 24px; opacity: 0.8; margin-bottom: 10px;">ROUND ${data.round} / ${data.totalRounds}</div>` : '';
+        gameMessage.innerHTML = `${roundText}WAIT FOR IT...`;
     } else if (state === 'go') {
         gameOverlay.classList.add('state-go');
         gameMessage.textContent = "CLICK!";
@@ -384,7 +391,6 @@ function showGameOverlay(state, data) {
         gameOverlay.classList.add('state-dq');
         gameMessage.textContent = "FALSE START ❌";
         setTimeout(() => {
-            // Only hide if we are still in DQ state (game might have ended)
             if (gameOverlay.classList.contains('state-dq')) {
                 gameOverlay.classList.remove('state-dq');
                 gameOverlay.classList.add('hidden');
@@ -393,11 +399,24 @@ function showGameOverlay(state, data) {
     } else if (state === 'win') {
         gameOverlay.classList.remove('state-go');
         gameOverlay.style.background = '#000';
-        gameMessage.innerHTML = `<div style="font-size: 40px; color: #fff;">WINNER</div><div style="color: ${data.color || '#fff'}">${data.username}</div><div style="font-size: 30px; color: #888;">${data.time}ms</div>`;
+
+        let scoreHtml = '';
+        if (data.totalRounds > 1 && data.scores) {
+            scoreHtml = `<div style="font-size: 18px; color: #888; margin-top: 20px;">Series Score: ${Object.entries(data.scores).map(([u, w]) => `${u}: ${w}`).join(' | ')}</div>`;
+        }
+
+        gameMessage.innerHTML = `
+            <div style="font-size: 24px; opacity: 0.6; margin-bottom: 10px;">ROUND ${data.round} WINNER</div>
+            <div style="color: ${data.color || '#fff'}">${data.username}</div>
+            <div style="font-size: 30px; color: #888;">${data.time}ms</div>
+            ${scoreHtml}
+        `;
         setTimeout(() => {
-            gameOverlay.classList.add('hidden');
-            gameOverlay.style.background = '';
-        }, 5000);
+            if (!gameOverlay.classList.contains('state-ready') && !gameOverlay.classList.contains('state-go')) {
+                gameOverlay.classList.add('hidden');
+                gameOverlay.style.background = '';
+            }
+        }, 3500);
     } else if (state === 'cancel') {
         gameOverlay.classList.remove('state-ready', 'state-go', 'state-dq');
         gameOverlay.style.background = '#222';
@@ -406,5 +425,20 @@ function showGameOverlay(state, data) {
             gameOverlay.classList.add('hidden');
             gameOverlay.style.background = '';
         }, 2000);
+    } else if (state === 'series-end') {
+        gameOverlay.classList.remove('state-ready', 'state-go', 'state-dq');
+        gameOverlay.style.background = '#000';
+        gameOverlay.classList.remove('hidden');
+
+        gameMessage.innerHTML = `
+            <div style="font-size: 30px; color: #FFD700; margin-bottom: 20px;">🏆 SERIES CHAMPION 🏆</div>
+            <div style="color: #fff; font-size: 60px;">${data.winner}</div>
+            <div style="font-size: 20px; color: #888; margin-top: 20px;">Final Score: ${Object.entries(data.scores).map(([u, w]) => `${u}: ${w}`).join(' | ')}</div>
+        `;
+
+        setTimeout(() => {
+            gameOverlay.classList.add('hidden');
+            gameOverlay.style.background = '';
+        }, 6000);
     }
 }

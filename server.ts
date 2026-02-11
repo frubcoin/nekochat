@@ -35,6 +35,9 @@ export default class NekoChat implements Party.Server {
   gameStartTime: number = 0;
   dqUsers = new Set<string>();
   gameTimer: unknown | null = null;
+  totalRounds: number = 1;
+  currentRound: number = 0;
+  roundWins = new Map<string, number>(); // username -> wins
 
   constructor(readonly room: Party.Room) { }
 
@@ -132,20 +135,22 @@ export default class NekoChat implements Party.Server {
       const state = sender.state as any;
       if (!state?.isAdmin) return;
 
-      // Reset Game State
-      this.gameState = "READY";
-      this.dqUsers.clear();
-      this.room.broadcast(JSON.stringify({ type: "game-ready" }));
+      // Parse rounds (1, 3, 5, 7)
+      const rounds = Math.min(Math.max(parseInt(parsed.rounds) || 1, 1), 7);
+      this.totalRounds = rounds;
+      this.currentRound = 1;
+      this.roundWins.clear();
 
-      // Random delay 2000 - 10000 ms
-      const delay = Math.floor(Math.random() * 8000) + 2000;
+      // Broadcast series start
+      this.room.broadcast(JSON.stringify({
+        type: "system-message",
+        text: rounds > 1
+          ? `⚡ Reaction Game — Best of ${rounds} rounds!`
+          : `⚡ Reaction Game — 1 round!`,
+        timestamp: Date.now()
+      }));
 
-      if (this.gameTimer) clearTimeout(this.gameTimer as unknown as number);
-      this.gameTimer = setTimeout(() => {
-        this.gameState = "GO";
-        this.gameStartTime = Date.now();
-        this.room.broadcast(JSON.stringify({ type: "game-go" }));
-      }, delay);
+      this.startRound();
     }
 
     // ═══ GAME: CLICK ═══
@@ -161,16 +166,23 @@ export default class NekoChat implements Party.Server {
         // Check if everyone is disqualified
         const activePlayers = [...this.room.getConnections()].filter(c => (c.state as any)?.username);
         if (this.dqUsers.size >= activePlayers.length) {
-          // Cancel the game
+          // Cancel the round
           if (this.gameTimer) clearTimeout(this.gameTimer as unknown as number);
           this.gameState = "IDLE";
           this.room.broadcast(JSON.stringify({
             type: "system-message",
-            text: "💀 Everyone disqualified! Round skipped.",
+            text: `💀 Everyone disqualified! Round ${this.currentRound} skipped.`,
             timestamp: Date.now()
           }));
-          // Also tell clients to hide overlay
           this.room.broadcast(JSON.stringify({ type: "game-cancel" }));
+
+          // Auto-advance if more rounds remain
+          if (this.currentRound < this.totalRounds) {
+            this.currentRound++;
+            setTimeout(() => this.startRound(), 3000);
+          } else {
+            this.endSeries();
+          }
         }
         return;
       }
@@ -179,21 +191,31 @@ export default class NekoChat implements Party.Server {
       if (this.gameState === "GO") {
         if (this.dqUsers.has(sender.id)) return; // Disqualified users ignored
 
-        // WINNER!
+        // WINNER of this round
         const reactionTime = Date.now() - this.gameStartTime;
-        this.gameState = "IDLE"; // End game
+        this.gameState = "IDLE";
+
+        // Track wins
+        const prevWins = this.roundWins.get(state.username) || 0;
+        this.roundWins.set(state.username, prevWins + 1);
 
         const winMsg = {
           type: "game-win",
           username: state.username,
-          time: reactionTime
+          color: state.color,
+          time: reactionTime,
+          round: this.currentRound,
+          totalRounds: this.totalRounds,
+          scores: Object.fromEntries(this.roundWins)
         };
         this.room.broadcast(JSON.stringify(winMsg));
 
         // Announce in chat
         const sysMsg = {
           msgType: "system",
-          text: `🏆 ${state.username} won in ${reactionTime}ms!`,
+          text: this.totalRounds > 1
+            ? `🏆 Round ${this.currentRound}: ${state.username} in ${reactionTime}ms!`
+            : `🏆 ${state.username} won in ${reactionTime}ms!`,
           timestamp: Date.now()
         };
         this.room.broadcast(JSON.stringify({ type: "system-message", ...sysMsg }));
@@ -202,6 +224,20 @@ export default class NekoChat implements Party.Server {
         const history = ((await this.room.storage.get("chatHistory")) as any[]) || [];
         history.push(sysMsg);
         await this.room.storage.put("chatHistory", history.slice(-MAX_HISTORY));
+
+        // Check if someone won the series (majority)
+        const winsNeeded = Math.ceil(this.totalRounds / 2);
+        if ((prevWins + 1) >= winsNeeded && this.totalRounds > 1) {
+          // Series winner!
+          setTimeout(() => this.endSeries(), 3000);
+        } else if (this.currentRound < this.totalRounds) {
+          // More rounds to go
+          this.currentRound++;
+          setTimeout(() => this.startRound(), 4000);
+        } else {
+          // Last round done
+          setTimeout(() => this.endSeries(), 3000);
+        }
       }
     }
 
@@ -364,6 +400,58 @@ export default class NekoChat implements Party.Server {
       }
     }
     this.room.broadcast(JSON.stringify({ type: "user-list", users, total: totalConnections }));
+  }
+
+  startRound() {
+    this.gameState = "READY";
+    this.dqUsers.clear();
+    this.room.broadcast(JSON.stringify({
+      type: "game-ready",
+      round: this.currentRound,
+      totalRounds: this.totalRounds
+    }));
+
+    // Random delay 2000 - 10000 ms
+    const delay = Math.floor(Math.random() * 8000) + 2000;
+
+    if (this.gameTimer) clearTimeout(this.gameTimer as unknown as number);
+    this.gameTimer = setTimeout(() => {
+      this.gameState = "GO";
+      this.gameStartTime = Date.now();
+      this.room.broadcast(JSON.stringify({ type: "game-go" }));
+    }, delay);
+  }
+
+  endSeries() {
+    // Find overall winner (most wins)
+    let bestUser = "";
+    let bestWins = 0;
+    for (const [user, wins] of this.roundWins) {
+      if (wins > bestWins) {
+        bestWins = wins;
+        bestUser = user;
+      }
+    }
+
+    if (bestUser && this.totalRounds > 1) {
+      this.room.broadcast(JSON.stringify({
+        type: "game-series-end",
+        winner: bestUser,
+        scores: Object.fromEntries(this.roundWins),
+        totalRounds: this.totalRounds
+      }));
+      this.room.broadcast(JSON.stringify({
+        type: "system-message",
+        text: `👑 ${bestUser} wins the series! (${bestWins}/${this.totalRounds} rounds)`,
+        timestamp: Date.now()
+      }));
+    }
+
+    // Reset
+    this.gameState = "IDLE";
+    this.totalRounds = 1;
+    this.currentRound = 0;
+    this.roundWins.clear();
   }
 }
 

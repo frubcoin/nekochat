@@ -29,10 +29,10 @@
             Connect Phantom
           </button>
           <div class="divider">or</div>
-          <div class="input-group">
+          <div class="input-group input-group--flush">
             <input type="text" id="manual-wallet-input" placeholder="enter wallet address manually"
-              class="input-minimal">
-            <button id="btn-manual-submit" class="btn-icon" aria-label="Submit wallet">
+              class="input-minimal input-minimal--left">
+            <button id="btn-manual-submit" class="btn-icon btn-icon--right" aria-label="Submit wallet">
               ➔
             </button>
           </div>
@@ -101,7 +101,15 @@
           </div>
         </div>
         <!-- Admin Panel (Hidden by default) -->
-        <button id="btn-admin-game" class="hidden">⚡ Start Reaction Game</button>
+        <div id="admin-panel" class="hidden">
+          <select id="round-select">
+            <option value="1">1 round</option>
+            <option value="3" selected>Best of 3</option>
+            <option value="5">Best of 5</option>
+            <option value="7">Best of 7</option>
+          </select>
+          <button id="btn-admin-game">⚡ Start</button>
+        </div>
       </aside>
 
     </div>
