@@ -340,6 +340,12 @@ body {
   z-index: 100;
 }
 
+.header-left {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
 .header-wordmark {
   font-family: var(--font-wordmark);
   font-size: 32px;
@@ -349,21 +355,14 @@ body {
   line-height: 1;
 }
 
-.header-meta {
-  font-size: 13px;
+.header-visitor-badge {
+  font-size: 14px;
   color: var(--text-muted);
-  display: flex;
-  align-items: center;
-  gap: 6px;
+  opacity: 0.8;
 }
 
-.online-dot {
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  background: #4ade80;
-  border-radius: 50%;
-  animation: pulse 2s ease-in-out infinite;
+.header-visitor-badge::before {
+  content: '· ';
 }
 
 @keyframes pulse {
