@@ -474,6 +474,14 @@ body {
   min-height: 0;
 }
 
+/* ═══ MAIN LAYOUT ═══ */
+#main-layout {
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+  min-height: calc(100vh - 73px);
+  background: var(--bg);
+}
+
 /* ═══ CHAT AREA ═══ */
 #chat-area {
   flex: 1;

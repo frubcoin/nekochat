@@ -8,11 +8,15 @@ const PARTYKIT_HOST = isLocal ? "localhost:1999" : "nekochat.frubcoin.partykit.d
 const WS_PROTOCOL = isLocal ? "ws" : "wss";
 const WS_URL = `${WS_PROTOCOL}://${PARTYKIT_HOST}/party/main-lobby`;
 
+let currentRoomId = 'main-lobby';
 let ws;
 let reconnectTimer = null;
 
-function connectWebSocket() {
-    ws = new WebSocket(WS_URL);
+function connectWebSocket(roomId = currentRoomId) {
+    if (ws) ws.close();
+    currentRoomId = roomId;
+    const url = `${WS_PROTOCOL}://${PARTYKIT_HOST}/party/${roomId}`;
+    ws = new WebSocket(url);
 
     ws.addEventListener('open', () => {
         console.log('connected to tryl.chat');
@@ -61,11 +65,16 @@ function connectWebSocket() {
                 break;
             case 'join-error':
                 alert(data.reason || 'Join failed');
-                // Go back to wallet step
-                DOM.loginForm.classList.add('hidden');
-                DOM.stepWallet.classList.remove('hidden');
-                DOM.loginOverlay.classList.remove('hidden');
-                DOM.chatPage.classList.add('hidden');
+                // If it was a room switch error, switch back to lobby
+                if (currentRoomId !== 'main-lobby') {
+                    switchRoom('main-lobby');
+                } else {
+                    // Critical error in lobby, show login
+                    DOM.loginForm.classList.add('hidden');
+                    DOM.stepWallet.classList.remove('hidden');
+                    DOM.loginOverlay.classList.remove('hidden');
+                    DOM.chatPage.classList.add('hidden');
+                }
                 break;
             case 'clear-chat':
                 DOM.chatMessages.innerHTML = '';
@@ -129,6 +138,7 @@ const DOM = {
     userList: document.getElementById('user-list'),
     onlineCount: document.getElementById('online-count'),
     guestCount: document.getElementById('guest-count'),
+    roomList: document.getElementById('room-list'),
     counterValue: document.getElementById('counter-value'),
     loginBox: document.getElementById('login-box'),
     stepWallet: document.getElementById('step-wallet'),
@@ -304,7 +314,32 @@ function formatTime(ts) {
     h = h % 12 || 12;
     return `${h}:${m} ${ampm}`;
 }
+// ═══ ROOM SWITCHING ═══
+function switchRoom(roomId) {
+    if (roomId === currentRoomId) return;
 
+    // Update UI
+    document.querySelectorAll('.room-item').forEach(item => {
+        item.classList.toggle('active', item.dataset.room === roomId);
+    });
+
+    // Clear messages for new room
+    DOM.chatMessages.innerHTML = '';
+    appendSystemMessage({ text: `✦ Switching to ${roomId}... ✦` });
+
+    // Reconnect
+    connectWebSocket(roomId);
+}
+
+// Room list delegation
+DOM.roomList.addEventListener('click', (e) => {
+    const item = e.target.closest('.room-item');
+    if (item && item.dataset.room) {
+        switchRoom(item.dataset.room);
+    }
+});
+
+// ═══ CHAT ═══
 function appendChatMessage(data) {
     const div = document.createElement('div');
     div.className = 'chat-msg';
