@@ -73,6 +73,9 @@ function connectWebSocket() {
             case 'game-win':
                 showGameOverlay('win', data);
                 break;
+            case 'game-cancel':
+                showGameOverlay('cancel');
+                break;
         }
     });
 
@@ -395,5 +398,13 @@ function showGameOverlay(state, data) {
             gameOverlay.classList.add('hidden');
             gameOverlay.style.background = '';
         }, 5000);
+    } else if (state === 'cancel') {
+        gameOverlay.classList.remove('state-ready', 'state-go', 'state-dq');
+        gameOverlay.style.background = '#222';
+        gameMessage.textContent = "ROUND SKIPPED 💀";
+        setTimeout(() => {
+            gameOverlay.classList.add('hidden');
+            gameOverlay.style.background = '';
+        }, 2000);
     }
 }

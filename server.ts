@@ -173,6 +173,21 @@ export default class NekoChat implements Party.Server {
       if (this.gameState === "READY") {
         this.dqUsers.add(sender.id);
         sender.send(JSON.stringify({ type: "game-dq" }));
+
+        // Check if everyone is disqualified
+        const activePlayers = [...this.room.getConnections()].filter(c => (c.state as any)?.username);
+        if (this.dqUsers.size >= activePlayers.length) {
+          // Cancel the game
+          if (this.gameTimer) clearTimeout(this.gameTimer);
+          this.gameState = "IDLE";
+          this.room.broadcast(JSON.stringify({
+            type: "system-message",
+            text: "💀 Everyone disqualified! Round skipped.",
+            timestamp: Date.now()
+          }));
+          // Also tell clients to hide overlay
+          this.room.broadcast(JSON.stringify({ type: "game-cancel" }));
+        }
         return;
       }
 
