@@ -163,15 +163,19 @@ DOM.manualInput.addEventListener('keydown', (e) => {
 
 DOM.btnManualSubmit.addEventListener('click', submitManualWallet);
 
-DOM.btnSkip.addEventListener('click', () => {
-    currentWalletAddress = null;
-    goToStep2();
-});
+if (DOM.btnSkip) {
+    DOM.btnSkip.addEventListener('click', () => {
+        currentWalletAddress = null;
+        goToStep2();
+    });
+}
 
-DOM.btnBack.addEventListener('click', () => {
-    DOM.loginForm.classList.add('hidden');
-    DOM.stepWallet.classList.remove('hidden');
-});
+if (DOM.btnBack) {
+    DOM.btnBack.addEventListener('click', () => {
+        DOM.loginForm.classList.add('hidden');
+        DOM.stepWallet.classList.remove('hidden');
+    });
+}
 
 function goToStep2() {
     DOM.stepWallet.classList.add('hidden');
