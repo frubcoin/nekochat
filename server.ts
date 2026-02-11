@@ -1,6 +1,56 @@
 import type * as Party from "partykit/server";
-import nacl from "tweetnacl";
-import bs58 from "bs58";
+
+// ═══ Base58 Decoder (for Solana wallet addresses) ═══
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function base58Decode(str: string): Uint8Array {
+  const bytes: number[] = [0];
+  for (const char of str) {
+    const idx = BASE58_ALPHABET.indexOf(char);
+    if (idx < 0) throw new Error('Invalid base58 character');
+    let carry = idx;
+    for (let j = 0; j < bytes.length; j++) {
+      carry += bytes[j] * 58;
+      bytes[j] = carry & 0xff;
+      carry >>= 8;
+    }
+    while (carry > 0) {
+      bytes.push(carry & 0xff);
+      carry >>= 8;
+    }
+  }
+  for (const char of str) {
+    if (char !== '1') break;
+    bytes.push(0);
+  }
+  return new Uint8Array(bytes.reverse());
+}
+
+// ═══ Ed25519 Signature Verification (Web Crypto API) ═══
+async function verifyEd25519(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array): Promise<boolean> {
+  try {
+    const key = await crypto.subtle.importKey(
+      'raw',
+      publicKey,
+      { name: 'Ed25519' } as any,
+      false,
+      ['verify']
+    );
+    return await crypto.subtle.verify('Ed25519' as any, key, signature, message);
+  } catch {
+    // Fallback for older CF Workers runtimes
+    const key = await crypto.subtle.importKey(
+      'raw',
+      publicKey,
+      { name: 'NODE-ED25519', namedCurve: 'NODE-ED25519' } as any,
+      false,
+      ['verify']
+    );
+    return await crypto.subtle.verify(
+      { name: 'NODE-ED25519', namedCurve: 'NODE-ED25519' } as any,
+      key, signature, message
+    );
+  }
+}
 
 // Retro color palette for usernames
 const RETRO_COLORS = [
@@ -169,8 +219,8 @@ export default class NekoChat implements Party.Server {
       try {
         const sigBytes = Uint8Array.from(atob(parsed.signature), (c: string) => c.charCodeAt(0));
         const msgBytes = new TextEncoder().encode(parsed.signMessage);
-        const pubKeyBytes = bs58.decode(wallet);
-        const isValid = nacl.sign.detached.verify(msgBytes, sigBytes, pubKeyBytes);
+        const pubKeyBytes = base58Decode(wallet);
+        const isValid = await verifyEd25519(msgBytes, sigBytes, pubKeyBytes);
         if (!isValid) {
           sender.send(JSON.stringify({ type: "join-error", reason: "Invalid wallet signature." }));
           return;
