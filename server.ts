@@ -83,6 +83,10 @@ export default class NekoChat implements Party.Server {
       const isAdmin = wallet && ADMIN_WALLETS.includes(wallet);
       sender.setState({ username, color, wallet, isAdmin });
 
+      if (isAdmin) {
+        sender.send(JSON.stringify({ type: "admin-mode" }));
+      }
+
       // Send chat history to joining user
       const history =
         ((await this.room.storage.get("chatHistory")) as any[]) || [];

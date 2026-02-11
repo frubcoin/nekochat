@@ -30,6 +30,9 @@ function connectWebSocket() {
                 appendChatMessage(data);
                 scrollToBottom();
                 break;
+            case 'admin-mode':
+                if (btnAdminGame) btnAdminGame.classList.remove('hidden');
+                break;
             case 'system-message':
                 appendSystemMessage(data);
                 scrollToBottom();
