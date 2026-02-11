@@ -249,7 +249,7 @@ function updateRemoteCursor(data) {
 
     // Reset stale timer — remove if no update for 5s
     if (cursor.timeout) clearTimeout(cursor.timeout);
-    cursor.timeout = setTimeout(() => removeRemoteCursor(data.id), 5000);
+    cursor.timeout = setTimeout(() => removeRemoteCursor(data.id), 30000);
 }
 
 function removeRemoteCursor(id) {
