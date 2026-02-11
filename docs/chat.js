@@ -24,7 +24,8 @@ function connectWebSocket(roomId = currentRoomId) {
             ws.send(JSON.stringify({
                 type: 'join',
                 username: currentUsername,
-                wallet: currentWalletAddress
+                wallet: currentWalletAddress,
+                signature: currentSignature
             }));
         }
     });
