@@ -162,6 +162,7 @@ const DOM = {
     signatureInput: document.getElementById('signature-input'),
     btnSignatureSubmit: document.getElementById('btn-signature-submit'),
     btnBackSign: document.getElementById('btn-back-sign'),
+    cursorOverlay: document.getElementById('cursor-overlay'),
 };
 
 let currentUsername = '';
@@ -483,7 +484,11 @@ document.addEventListener('mousemove', (e) => {
         dot.style.left = e.clientX + 'px';
         dot.style.top = e.clientY + 'px';
         dot.style.color = '#444';
-        document.body.appendChild(dot);
+        if (DOM.cursorOverlay) {
+            DOM.cursorOverlay.appendChild(dot);
+        } else {
+            document.body.appendChild(dot);
+        }
         setTimeout(() => dot.remove(), 600);
     }
 
@@ -513,7 +518,11 @@ function updateRemoteCursor(data) {
             <span class="remote-cursor-dot"></span>
             <span class="remote-cursor-label"></span>
         `;
-        document.body.appendChild(el);
+        if (DOM.cursorOverlay) {
+            DOM.cursorOverlay.appendChild(el);
+        } else {
+            document.body.appendChild(el);
+        }
         cursor = { el, timeout: null };
         remoteCursors[data.id] = cursor;
     }
