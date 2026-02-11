@@ -1,4 +1,5 @@
 import type * as Party from "partykit/server";
+import bs58 from "bs58";
 
 // Retro color palette for usernames
 const RETRO_COLORS = [
@@ -90,6 +91,34 @@ export default class NekoChat implements Party.Server {
       return 0;
     }
   }
+
+  private async verifySignature(wallet: string, signature: string): Promise<boolean> {
+    try {
+      const message = "Sign this message to verify ownership of this wallet for tryl.chat.";
+      const msgUint8 = new TextEncoder().encode(message);
+      const sigUint8 = new Uint8Array(bs58.decode(signature));
+      const pubKeyUint8 = new Uint8Array(bs58.decode(wallet));
+
+      // Create an Ed25519 KeyObject from the public key
+      const key = await crypto.subtle.importKey(
+        "raw",
+        pubKeyUint8,
+        { name: "Ed25519", namedCurve: "Ed25519" },
+        true,
+        ["verify"]
+      );
+
+      return await crypto.subtle.verify(
+        "Ed25519",
+        key,
+        sigUint8,
+        msgUint8
+      );
+    } catch (err) {
+      console.error("[AUTH] Signature verification error:", err);
+      return false;
+    }
+  }
   // Track message timestamps for rate limiting
   rateLimits = new Map<string, number[]>();
 
@@ -152,34 +181,46 @@ export default class NekoChat implements Party.Server {
         .trim()
         .substring(0, 20);
       const wallet = parsed.wallet || null;
+      const signature = parsed.signature || null;
 
       if (!username) return;
 
-      // 1. Basic Authorization (Whitelist or Token)
+      // 1. Signature Verification (if wallet is provided)
+      if (wallet && !signature) {
+        sender.send(JSON.stringify({ type: "join-error", reason: "Signature required for wallet verification." }));
+        return;
+      }
+
+      if (wallet && signature) {
+        const isValid = await this.verifySignature(wallet, signature);
+        if (!isValid) {
+          console.log(`[AUTH] Invalid signature for wallet: ${wallet}`);
+          sender.send(JSON.stringify({ type: "join-error", reason: "Invalid wallet signature. Please try again." }));
+          return;
+        }
+      }
+
+      // 2. Room Access Authorization
       const whitelisted = await this.isWhitelisted(wallet || "");
       const roomId = this.room.id;
       const gatedConfig = GATED_ROOMS[roomId as keyof typeof GATED_ROOMS];
 
       let hasAccess = whitelisted;
 
-      // If not whitelisted, check token balance if we have a wallet
-      if (!hasAccess && wallet) {
-        // Holders of $Gh6c are granted entry to both the Lobby and the Lounge
-        const primaryMint = "Gh6cBL11RRwVYHUyoGFXdYJXhWW1HETnPriNZN71pump";
-        const targetMint = gatedConfig ? gatedConfig.mint : primaryMint;
-
-        const balance = await this.getTokenBalance(wallet, targetMint);
-        if (balance >= 1) {
+      // If it's a gated room, also allow authenticated token holders
+      if (!hasAccess && gatedConfig && wallet) {
+        const balance = await this.getTokenBalance(wallet, gatedConfig.mint);
+        if (balance >= gatedConfig.minBalance) {
           hasAccess = true;
-          console.log(`[AUTH] Access granted via Token balance for ${wallet} in room ${roomId} (Balance: ${balance})`);
+          console.log(`[AUTH] Gated Access granted via Token balance for ${wallet} in room ${roomId} (Balance: ${balance})`);
         }
       }
 
       // Final decision
       if (!hasAccess) {
-        const reason = gatedConfig
-          ? `Holders Only. This room requires at least 1 $Gh6c token.`
-          : `Unauthorized. Your wallet is not on the whitelist or holding tokens.`;
+        const reason = roomId === "main-lobby"
+          ? "Unauthorized. The Lobby is restricted to whitelisted members."
+          : `Gated Access. This room requires at least ${gatedConfig?.minBalance || 1} $Gh6c token.`;
 
         console.log(`[AUTH] Access DENIED for ${wallet} in ${roomId}. Reason: ${reason}`);
         sender.send(JSON.stringify({ type: "join-error", reason }));

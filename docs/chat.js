@@ -156,10 +156,17 @@ const DOM = {
     gameMessage: document.getElementById('game-message'),
     pinnedBanner: document.getElementById('pinned-banner'),
     pinText: document.getElementById('pin-text'),
+    stepSign: document.getElementById('step-sign'),
+    signMessageDisplay: document.getElementById('sign-message-display'),
+    signatureInput: document.getElementById('signature-input'),
+    btnSignatureSubmit: document.getElementById('btn-signature-submit'),
+    btnBackSign: document.getElementById('btn-back-sign'),
 };
 
 let currentUsername = '';
 let currentWalletAddress = null;
+let currentSignature = null;
+const SIGN_MESSAGE = "Sign this message to verify ownership of this wallet for tryl.chat.";
 
 // Chat history tracking
 const sentHistory = [];
@@ -182,11 +189,19 @@ DOM.btnPhantom.addEventListener('click', async () => {
     if (window.solana && window.solana.isPhantom) {
         try {
             const resp = await window.solana.connect();
-            currentWalletAddress = resp.publicKey.toString();
+            const wallet = resp.publicKey.toString();
+
+            // Immediately request signature
+            const encodedMessage = new TextEncoder().encode(SIGN_MESSAGE);
+            const signedMessage = await window.solana.signMessage(encodedMessage, "utf8");
+
+            currentWalletAddress = wallet;
+            currentSignature = bs58.encode(signedMessage.signature);
+
             goToStep2();
         } catch (err) {
             console.error(err);
-            alert('Connection failed or rejected');
+            alert('Connection or Signature failed/rejected');
         }
     } else {
         alert('Phantom wallet not found! Please install it.');
@@ -198,9 +213,27 @@ function submitManualWallet() {
     const val = DOM.manualInput.value.trim();
     if (val) {
         currentWalletAddress = val;
+        goToStepSign();
+    }
+}
+
+function submitSignature() {
+    const val = DOM.signatureInput.value.trim();
+    if (val) {
+        currentSignature = val;
         goToStep2();
     }
 }
+
+DOM.btnSignatureSubmit.addEventListener('click', submitSignature);
+DOM.signatureInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitSignature();
+});
+
+DOM.btnBackSign.addEventListener('click', () => {
+    DOM.stepSign.classList.add('hidden');
+    DOM.stepWallet.classList.remove('hidden');
+});
 
 DOM.manualInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitManualWallet();
@@ -222,8 +255,17 @@ if (DOM.btnBack) {
     });
 }
 
+function goToStepSign() {
+    DOM.stepWallet.classList.add('hidden');
+    DOM.stepSign.classList.remove('hidden');
+    DOM.signMessageDisplay.textContent = SIGN_MESSAGE;
+    DOM.signatureInput.value = '';
+    DOM.signatureInput.focus();
+}
+
 function goToStep2() {
     DOM.stepWallet.classList.add('hidden');
+    DOM.stepSign.classList.add('hidden');
     DOM.loginForm.classList.remove('hidden');
     DOM.usernameInput.focus();
 }
@@ -238,7 +280,8 @@ DOM.loginForm.addEventListener('submit', (e) => {
         ws.send(JSON.stringify({
             type: 'join',
             username: name,
-            wallet: currentWalletAddress
+            wallet: currentWalletAddress,
+            signature: currentSignature
         }));
     }
     DOM.loginOverlay.classList.add('hidden');
