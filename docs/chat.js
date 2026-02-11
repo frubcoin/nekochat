@@ -58,6 +58,21 @@ function connectWebSocket() {
             case 'cursor-gone':
                 removeRemoteCursor(data.id);
                 break;
+            // ═══ GAME EVENTS ═══
+            case 'game-ready':
+                console.log('[GAME] Received game-ready');
+                showGameOverlay('ready');
+                break;
+            case 'game-go':
+                console.log('[GAME] Received game-go');
+                showGameOverlay('go');
+                break;
+            case 'game-dq':
+                showGameOverlay('dq');
+                break;
+            case 'game-win':
+                showGameOverlay('win', data);
+                break;
         }
     });
 
