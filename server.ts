@@ -172,20 +172,24 @@ export default class NekoChat implements Party.Server {
       this.room.broadcast(
         JSON.stringify({ type: "cursor-gone", id: conn.id })
       );
-
-      // Broadcast updated user list
-      await this.broadcastUserList();
     }
+
+    // Always broadcast updated user list (active connection count changed)
+    await this.broadcastUserList();
   }
 
   async broadcastUserList() {
-    const users: { username: string; color: string }[] = [];
+    const users: { username: string; color: string; wallet?: string }[] = [];
     let totalConnections = 0;
     for (const conn of this.room.getConnections()) {
       totalConnections++;
       const state = conn.state as any;
       if (state?.username) {
-        users.push({ username: state.username, color: state.color });
+        users.push({
+          username: state.username,
+          color: state.color,
+          wallet: state.wallet // Include wallet address (or null)
+        });
       }
     }
     this.room.broadcast(JSON.stringify({ type: "user-list", users, total: totalConnections }));
