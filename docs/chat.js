@@ -21,6 +21,7 @@ function connectWebSocket(roomId = currentRoomId) {
     ws.addEventListener('open', () => {
         console.log(`connected to tryl.chat room: ${currentRoomId}`);
         if (currentUsername) {
+            console.log(`[JOIN] Sending join to ${currentRoomId} with signature: ${currentSignature ? currentSignature.substring(0, 10) + '...' : 'NONE'}`);
             ws.send(JSON.stringify({
                 type: 'join',
                 username: currentUsername,
