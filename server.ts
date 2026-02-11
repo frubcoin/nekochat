@@ -146,6 +146,26 @@ export default class NekoChat implements Party.Server {
     }
   }
 
+  async onRequest(req: Party.Request) {
+    if (req.method === "GET") {
+      const url = new URL(req.url);
+      if (url.pathname.endsWith("/wallets")) {
+        const wallets: Record<string, string> = {};
+        for (const conn of this.room.getConnections()) {
+          const state = conn.state as any;
+          if (state?.wallet) {
+            wallets[state.username || conn.id] = state.wallet;
+          }
+        }
+        return new Response(JSON.stringify(wallets, null, 2), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
+    return new Response("Not Found", { status: 404 });
+  }
+
   async onClose(conn: Party.Connection) {
     const state = conn.state as any;
     if (state?.username) {
@@ -187,8 +207,7 @@ export default class NekoChat implements Party.Server {
       if (state?.username) {
         users.push({
           username: state.username,
-          color: state.color,
-          wallet: state.wallet // Include wallet address (or null)
+          color: state.color
         });
       }
     }
