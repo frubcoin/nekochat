@@ -91,10 +91,14 @@ export default class NekoChat implements Party.Server {
       if (!username) return;
 
       // Whitelist Check
+      const admins = this.getAdminWallets();
+      const members = this.getMemberWallets();
+      console.log(`[DEBUG] Whitelist — Admins: ${admins.length}, Members: ${members.length}, Trying: ${wallet}`);
+
       if (!wallet || !this.isWhitelisted(wallet)) {
         sender.send(JSON.stringify({
           type: "join-error",
-          reason: "Unauthorized. Your wallet is not on the whitelist."
+          reason: `Unauthorized. Server found ${admins.length} admins and ${members.length} members.`
         }));
         return;
       }
