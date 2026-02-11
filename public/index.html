@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>~*~ R3TR0 CH4T ~*~ NekoChat 2000 ~*~</title>
+  <meta name="description" content="The coolest retro chat room on the web! Enter NekoChat 2000 and talk to your cyber friends!">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ═══ STARFIELD CURSOR TRAIL ═══ -->
+  <div id="cursor-trail"></div>
+
+  <!-- ═══ LOGIN OVERLAY ═══ -->
+  <div id="login-overlay">
+    <div id="login-box">
+      <div class="login-title">
+        <span class="blink">★</span> Welcome to NekoChat 2000 <span class="blink">★</span>
+      </div>
+      <div class="login-cat">
+        <pre class="ascii-cat">
+  /\_/\  
+ ( o.o ) 
+  > ^ <
+ /|   |\
+(_|   |_)
+        </pre>
+      </div>
+      <div class="login-subtitle">~ Enter your screen name to begin chatting ~</div>
+      <form id="login-form">
+        <input type="text" id="username-input" maxlength="20" placeholder="xX_CoolUser_Xx" autocomplete="off" autofocus>
+        <button type="submit" class="retro-btn">
+          ⚡ Enter Chat ⚡
+        </button>
+      </form>
+      <div class="login-footer">
+        <span class="rainbow-text">Best viewed in Netscape Navigator 4.0</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ MAIN CHAT PAGE ═══ -->
+  <div id="chat-page" class="hidden">
+    <!-- TOP BANNER -->
+    <div id="top-banner">
+      <div class="banner-border-top"></div>
+      <marquee behavior="scroll" direction="left" scrollamount="3">
+        ★彡 Welcome to NekoChat 2000!! ★彡 The #1 chat room on the information superhighway!! ★彡 Be nice or be BANNED!! ★彡 Sign our guestbook!! ★彡 You are visitor #<span id="visitor-num">????</span>! ★彡
+      </marquee>
+      <div class="banner-border-bottom"></div>
+    </div>
+
+    <!-- TITLE AREA -->
+    <div id="title-area">
+      <div class="title-stars">✦✧✦✧✦✧✦✧✦✧✦✧✦✧✦</div>
+      <h1>
+        <span class="letter" style="color:#ff00ff">N</span><span class="letter" style="color:#ff3399">e</span><span class="letter" style="color:#ff6600">k</span><span class="letter" style="color:#ffcc00">o</span><span class="letter" style="color:#00ff00">C</span><span class="letter" style="color:#00ffff">h</span><span class="letter" style="color:#3399ff">a</span><span class="letter" style="color:#9900ff">t</span>
+        <span class="title-year">2000</span>
+      </h1>
+      <div class="title-stars">✦✧✦✧✦✧✦✧✦✧✦✧✦✧✦</div>
+    </div>
+
+    <!-- RAINBOW DIVIDER -->
+    <div class="rainbow-divider"></div>
+
+    <!-- MAIN LAYOUT -->
+    <div id="main-layout">
+      <!-- SIDEBAR -->
+      <div id="sidebar">
+        <!-- Online Users -->
+        <div class="sidebar-box">
+          <div class="sidebar-box-title">
+            <span class="blink">●</span> Online Now <span class="blink">●</span>
+          </div>
+          <ul id="user-list">
+            <li class="no-users">No one here yet...</li>
+          </ul>
+        </div>
+
+        <!-- Hit Counter -->
+        <div class="sidebar-box">
+          <div class="sidebar-box-title">📊 Visitors</div>
+          <div id="hit-counter">
+            <div class="counter-display">
+              <span id="counter-value">000000</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cool Links -->
+        <div class="sidebar-box">
+          <div class="sidebar-box-title">🔗 Cool Links</div>
+          <div class="cool-links">
+            <div class="badge-88x31">🌐 HTML</div>
+            <div class="badge-88x31">☕ Java</div>
+            <div class="badge-88x31">🐱 Neko</div>
+            <div class="badge-88x31">📧 Email</div>
+          </div>
+        </div>
+
+        <!-- Webring -->
+        <div class="sidebar-box">
+          <div class="sidebar-box-title">🔄 WebRing</div>
+          <div class="webring">
+            <span class="webring-link">⬅ Prev</span>
+            <span class="webring-link">🏠 Hub</span>
+            <span class="webring-link">Next ➡</span>
+          </div>
+        </div>
+
+        <!-- Under Construction -->
+        <div class="sidebar-box construction-box">
+          <div class="construction-banner">
+            🚧 UNDER<br>CONSTRUCTION 🚧
+          </div>
+          <div class="blink construction-text">Come back soon!</div>
+        </div>
+      </div>
+
+      <!-- CHAT AREA -->
+      <div id="chat-area">
+        <div id="chat-header">
+          <span class="blink">💬</span> Chat Room <span class="blink">💬</span>
+          <span class="chat-header-sub">( be cool, be kind )</span>
+        </div>
+        <div id="chat-messages">
+          <div class="system-msg welcome-msg">
+            ★═══════════════════════════════════★<br>
+            Welcome to NekoChat 2000!<br>
+            Rules: Be nice! No spamming!<br>
+            Have fun and make friends! (◕‿◕)<br>
+            ★═══════════════════════════════════★
+          </div>
+        </div>
+        <form id="chat-form">
+          <div id="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type your message..." maxlength="500" autocomplete="off">
+            <button type="submit" class="retro-btn send-btn">Send ✉</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- RAINBOW DIVIDER -->
+    <div class="rainbow-divider"></div>
+
+    <!-- FOOTER -->
+    <div id="footer">
+      <div class="footer-ascii">
+        <pre>~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~</pre>
+      </div>
+      <div class="footer-badges">
+        <span class="footer-badge">📧 Webmaster</span>
+        <span class="footer-badge">📖 Guestbook</span>
+        <span class="footer-badge">🔙 Back</span>
+      </div>
+      <div class="footer-text">
+        © 2000 NekoChat. All rights reserved.<br>
+        <span class="rainbow-text">Best viewed at 800x600 with Netscape Navigator</span><br>
+        <span class="blink">★</span> Made with ♥ and HTML <span class="blink">★</span>
+      </div>
+      <div class="footer-ascii">
+        <pre>~*~*~*~*~*~*~*~*~*~*~*~*~*~*~*~</pre>
+      </div>
+    </div>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="chat.js"></script>
+</body>
+</html>
