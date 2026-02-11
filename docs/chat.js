@@ -57,6 +57,12 @@ function connectWebSocket() {
                     scrollToBottom();
                 }
                 break;
+            case 'cursor':
+                updateRemoteCursor(data);
+                break;
+            case 'cursor-gone':
+                removeRemoteCursor(data.id);
+                break;
         }
     });
 
@@ -184,23 +190,76 @@ function scrollToBottom() {
 // ═══ CURSOR TRAIL EFFECT ═══
 const trailSymbols = ['✦', '✧', '★', '☆', '·', '✶', '✴', '✸'];
 let trailThrottle = 0;
+let cursorSendThrottle = 0;
 
 document.addEventListener('mousemove', (e) => {
     const now = Date.now();
-    if (now - trailThrottle < 60) return;
-    trailThrottle = now;
 
-    const star = document.createElement('span');
-    star.className = 'trail-star';
-    star.textContent = trailSymbols[Math.floor(Math.random() * trailSymbols.length)];
-    star.style.left = e.clientX + 'px';
-    star.style.top = e.clientY + 'px';
-    star.style.color = `hsl(${Math.random() * 360}, 100%, 70%)`;
+    // Sparkle trail (every 60ms)
+    if (now - trailThrottle >= 60) {
+        trailThrottle = now;
+        const star = document.createElement('span');
+        star.className = 'trail-star';
+        star.textContent = trailSymbols[Math.floor(Math.random() * trailSymbols.length)];
+        star.style.left = e.clientX + 'px';
+        star.style.top = e.clientY + 'px';
+        star.style.color = `hsl(${Math.random() * 360}, 100%, 70%)`;
+        document.body.appendChild(star);
+        setTimeout(() => star.remove(), 800);
+    }
 
-    document.body.appendChild(star);
-
-    setTimeout(() => star.remove(), 800);
+    // Send cursor position to others (every 50ms)
+    if (currentUsername && now - cursorSendThrottle >= 50) {
+        cursorSendThrottle = now;
+        if (ws.readyState === WebSocket.OPEN) {
+            // Send as % of viewport so it works across different screen sizes
+            ws.send(JSON.stringify({
+                type: 'cursor',
+                x: (e.clientX / window.innerWidth) * 100,
+                y: (e.clientY / window.innerHeight) * 100,
+            }));
+        }
+    }
 });
+
+// ═══ REMOTE CURSORS ═══
+const remoteCursors = {}; // id -> { element, timeout }
+
+function updateRemoteCursor(data) {
+    let cursor = remoteCursors[data.id];
+
+    if (!cursor) {
+        // Create cursor element
+        const el = document.createElement('div');
+        el.className = 'remote-cursor';
+        el.innerHTML = `
+            <span class="remote-cursor-dot" style="background: ${data.color}; box-shadow: 0 0 8px ${data.color}, 0 0 16px ${data.color};"></span>
+            <span class="remote-cursor-label" style="color: ${data.color}; text-shadow: 0 0 6px ${data.color};">${data.username}</span>
+        `;
+        document.body.appendChild(el);
+        cursor = { el, timeout: null };
+        remoteCursors[data.id] = cursor;
+    }
+
+    // Position at % of viewport
+    const x = (data.x / 100) * window.innerWidth;
+    const y = (data.y / 100) * window.innerHeight;
+    cursor.el.style.left = x + 'px';
+    cursor.el.style.top = y + 'px';
+
+    // Reset stale timer — remove if no update for 5s
+    if (cursor.timeout) clearTimeout(cursor.timeout);
+    cursor.timeout = setTimeout(() => removeRemoteCursor(data.id), 5000);
+}
+
+function removeRemoteCursor(id) {
+    const cursor = remoteCursors[id];
+    if (cursor) {
+        cursor.el.remove();
+        if (cursor.timeout) clearTimeout(cursor.timeout);
+        delete remoteCursors[id];
+    }
+}
 
 // ═══ KEYBOARD SHORTCUT ═══
 document.addEventListener('keydown', (e) => {

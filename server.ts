@@ -16,7 +16,7 @@ const MAX_HISTORY = 200;
 const HISTORY_ON_JOIN = 100;
 
 export default class NekoChat implements Party.Server {
-  constructor(readonly room: Party.Room) {}
+  constructor(readonly room: Party.Room) { }
 
   async onStart() {
     // Initialize visitor count if not set
@@ -120,6 +120,24 @@ export default class NekoChat implements Party.Server {
       await this.room.storage.put(
         "chatHistory",
         history.slice(-MAX_HISTORY)
+      );
+    }
+
+    // Cursor position — relay to everyone else (no persistence)
+    if (parsed.type === "cursor") {
+      const state = sender.state as any;
+      if (!state?.username) return;
+
+      this.room.broadcast(
+        JSON.stringify({
+          type: "cursor",
+          id: sender.id,
+          username: state.username,
+          color: state.color,
+          x: parsed.x,
+          y: parsed.y,
+        }),
+        [sender.id] // exclude sender
       );
     }
   }
