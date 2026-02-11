@@ -93,6 +93,7 @@ const manualInput = document.getElementById('manual-wallet-input');
 const btnManualSubmit = document.getElementById('btn-manual-submit');
 const btnSkip = document.getElementById('btn-skip-wallet');
 const btnBack = document.getElementById('btn-back-wallet');
+const colorInput = document.getElementById('color-input'); // Added
 
 let currentWalletAddress = null;
 
@@ -149,11 +150,16 @@ loginForm.addEventListener('submit', (e) => {
     const name = usernameInput.value.trim();
     if (!name) return;
     currentUsername = name;
+
+    // Get selected color
+    const color = colorInput ? colorInput.value : null;
+
     if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
             type: 'join',
             username: name,
-            wallet: currentWalletAddress
+            wallet: currentWalletAddress,
+            color: color
         }));
     }
     loginOverlay.classList.add('hidden');

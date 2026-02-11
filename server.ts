@@ -18,6 +18,9 @@ const HISTORY_ON_JOIN = 100;
 export default class NekoChat implements Party.Server {
   constructor(readonly room: Party.Room) { }
 
+  // Rate limits: conn.id -> number[] (timestamps)
+  rateLimits = new Map<string, number[]>();
+
   async onStart() {
     // Initialize visitor count if not set
     const count = await this.room.storage.get("realVisitorCount");
@@ -59,8 +62,26 @@ export default class NekoChat implements Party.Server {
 
       console.log(`[JOIN] User: ${username}, Wallet: ${wallet || "None"}`);
 
-      const color = getRandomColor();
-      sender.setState({ username, color, wallet });
+      // ═══ COLOR PERSISTENCE ═══
+      let userColor = parsed.color;
+      const userColors = (await this.room.storage.get("userColors") as Record<string, string>) || {};
+
+      if (userColor) {
+        // User provided a color, save it
+        userColors[username] = userColor;
+        await this.room.storage.put("userColors", userColors);
+      } else if (userColors[username]) {
+        // User didn't provide color, but has one saved
+        userColor = userColors[username];
+      } else {
+        // No color provided or saved, generate random
+        userColor = getRandomColor();
+        // Save it so it sticks next time
+        userColors[username] = userColor;
+        await this.room.storage.put("userColors", userColors);
+      }
+
+      sender.setState({ username, color: userColor, wallet });
 
       // Send chat history to joining user
       const history =
@@ -106,6 +127,22 @@ export default class NekoChat implements Party.Server {
     }
 
     if (parsed.type === "chat") {
+      // ═══ RATE LIMIT CHECK ═══
+      const now = Date.now();
+      const timestamps = this.rateLimits.get(sender.id) || [];
+      const recent = timestamps.filter(t => now - t < 10000); // 10s window
+
+      if (recent.length >= 5) {
+        sender.send(JSON.stringify({
+          type: "system-message",
+          text: "You're chatting too fast! 🐢"
+        }));
+        return;
+      }
+
+      recent.push(now);
+      this.rateLimits.set(sender.id, recent);
+
       const state = sender.state as any;
       if (!state?.username) return;
 
@@ -157,6 +194,15 @@ export default class NekoChat implements Party.Server {
     }
   }
 
+  static onBeforeConnect(req: Party.Request) {
+    const origin = req.headers.get("Origin") || "";
+    // Allow localhost for dev, and any subdomain of frub.bio
+    if (origin.includes("localhost") || origin.includes("127.0.0.1") || origin.endsWith("frub.bio")) {
+      return req;
+    }
+    return new Response("Unauthorized Origin", { status: 403 });
+  }
+
   async onRequest(req: Party.Request) {
     if (req.method === "GET") {
       const url = new URL(req.url);
@@ -173,6 +219,7 @@ export default class NekoChat implements Party.Server {
   }
 
   async onClose(conn: Party.Connection) {
+    this.rateLimits.delete(conn.id);
     const state = conn.state as any;
     if (state?.username) {
       // Broadcast leave message
