@@ -130,8 +130,23 @@ export default class NekoChat implements Party.Server {
     // ═══ GAME: START (Admin Only) ═══
     if (parsed.type === "admin-start-game") {
       const state = sender.state as any;
-      console.log(`[GAME] Start Limit Check: User=${state?.username}, IsAdmin=${state?.isAdmin}`);
-      if (!state?.isAdmin) return; // Ignore if not admin
+      console.log(`[GAME] Received start command from ${sender.id}`);
+      console.log(`[GAME] State:`, JSON.stringify(state));
+
+      if (!state?.isAdmin) {
+        sender.send(JSON.stringify({
+          type: "system-message",
+          text: `DEBUG: Admin check failed. State: ${JSON.stringify(state)}`,
+          timestamp: Date.now()
+        }));
+        return;
+      }
+
+      sender.send(JSON.stringify({
+        type: "system-message",
+        text: `DEBUG: Admin check passed. Starting game...`,
+        timestamp: Date.now()
+      }));
 
       // Reset Game State
       this.gameState = "READY";
