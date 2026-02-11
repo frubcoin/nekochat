@@ -15,7 +15,7 @@ function connectWebSocket() {
     ws = new WebSocket(WS_URL);
 
     ws.addEventListener('open', () => {
-        console.log('✦ Connected to NekoChat 2000 ✦');
+        console.log('✦ Connected to tryl.chat ✦');
         // Re-join if we had a username (reconnection)
         if (currentUsername) {
             ws.send(JSON.stringify({ type: 'join', username: currentUsername }));
