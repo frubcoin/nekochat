@@ -2,6 +2,8 @@
    ★ NekoChat 2000 — Client Script ★
    ═══════════════════════════════════════ */
 
+import PartySocket from "https://esm.sh/partysocket@latest";
+
 // ═══ PARTYKIT CONNECTION ═══
 // In dev, PartyKit runs on localhost:1999
 // In production, update this to your deployed PartyKit host
