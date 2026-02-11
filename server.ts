@@ -69,7 +69,7 @@ export default class NekoChat implements Party.Server {
           params: [
             wallet,
             { mint },
-            { encoding: "jsonParsed" }
+            { encoding: "jsonParsed", commitment: "confirmed" }
           ]
         })
       });
