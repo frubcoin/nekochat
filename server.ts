@@ -19,14 +19,13 @@ const HISTORY_ON_JOIN = 100;
 const RATE_LIMIT_WINDOW = 10000;
 const MAX_MESSAGES_PER_WINDOW = 5;
 
-// Admin Whitelist
-const ADMIN_WALLETS = [
-  "9EAU86AXo67dE3MHZfGd2bx7G45CJDDVUDJ1n78S8Ecn"
-];
-
 type GameState = "IDLE" | "READY" | "GO";
 
 export default class NekoChat implements Party.Server {
+  private getAdminWallets(): string[] {
+    const adminWallets = (this.room.env.ADMIN_WALLETS as string) || "";
+    return adminWallets.split(",").map(w => w.trim()).filter(Boolean);
+  }
   // Track message timestamps for rate limiting
   rateLimits = new Map<string, number[]>();
 
@@ -83,7 +82,7 @@ export default class NekoChat implements Party.Server {
       console.log(`[JOIN] User: ${username}, Wallet: ${wallet || "None"}`);
 
       const color = getRandomColor();
-      const isAdmin = wallet && ADMIN_WALLETS.includes(wallet);
+      const isAdmin = wallet && this.getAdminWallets().includes(wallet);
       sender.setState({ username, color, wallet, isAdmin });
 
       if (isAdmin) {

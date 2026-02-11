@@ -94,33 +94,38 @@ function connectWebSocket() {
 connectWebSocket();
 
 // ═══ DOM ═══
-const loginOverlay = document.getElementById('login-overlay');
-const loginForm = document.getElementById('login-form');
-const usernameInput = document.getElementById('username-input');
-const chatPage = document.getElementById('chat-page');
-const chatForm = document.getElementById('chat-form');
-const chatInput = document.getElementById('chat-input');
-const chatMessages = document.getElementById('chat-messages');
-const userListEl = document.getElementById('user-list');
-const visitorNum = document.getElementById('visitor-num');
-const counterValue = document.getElementById('counter-value');
-const onlineCount = document.getElementById('online-count');
+const DOM = {
+    loginOverlay: document.getElementById('login-overlay'),
+    loginForm: document.getElementById('login-form'),
+    usernameInput: document.getElementById('username-input'),
+    chatPage: document.getElementById('chat-page'),
+    chatForm: document.getElementById('chat-form'),
+    chatInput: document.getElementById('chat-input'),
+    chatMessages: document.getElementById('chat-messages'),
+    userList: document.getElementById('user-list'),
+    visitorNum: document.getElementById('visitor-num'),
+    counterValue: document.getElementById('counter-value'),
+    onlineCount: document.getElementById('online-count'),
+    loginBox: document.getElementById('login-box'),
+    stepWallet: document.getElementById('step-wallet'),
+    btnPhantom: document.getElementById('btn-phantom'),
+    manualInput: document.getElementById('manual-wallet-input'),
+    btnManualSubmit: document.getElementById('btn-manual-submit'),
+    btnSkip: document.getElementById('btn-skip-wallet'),
+    btnBack: document.getElementById('btn-back-wallet'),
+    colorPicker: document.getElementById('color-picker'),
+    btnAdminGame: document.getElementById('btn-admin-game'),
+    adminPanel: document.getElementById('admin-panel'),
+    roundSelect: document.getElementById('round-select'),
+    gameOverlay: document.getElementById('game-overlay'),
+    gameMessage: document.getElementById('game-message'),
+};
 
 let currentUsername = '';
-
-// ═══ LOGIN ═══
-const loginBox = document.getElementById('login-box');
-const stepWallet = document.getElementById('step-wallet');
-const btnPhantom = document.getElementById('btn-phantom');
-const manualInput = document.getElementById('manual-wallet-input');
-const btnManualSubmit = document.getElementById('btn-manual-submit');
-const btnSkip = document.getElementById('btn-skip-wallet');
-const btnBack = document.getElementById('btn-back-wallet');
-
 let currentWalletAddress = null;
 
 // ═══ WALLET FLOW ═══
-btnPhantom.addEventListener('click', async () => {
+DOM.btnPhantom.addEventListener('click', async () => {
     if (window.solana && window.solana.isPhantom) {
         try {
             const resp = await window.solana.connect();
@@ -137,39 +142,39 @@ btnPhantom.addEventListener('click', async () => {
 });
 
 function submitManualWallet() {
-    const val = manualInput.value.trim();
+    const val = DOM.manualInput.value.trim();
     if (val) {
         currentWalletAddress = val;
         goToStep2();
     }
 }
 
-manualInput.addEventListener('keydown', (e) => {
+DOM.manualInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitManualWallet();
 });
 
-btnManualSubmit.addEventListener('click', submitManualWallet);
+DOM.btnManualSubmit.addEventListener('click', submitManualWallet);
 
-btnSkip.addEventListener('click', () => {
+DOM.btnSkip.addEventListener('click', () => {
     currentWalletAddress = null;
     goToStep2();
 });
 
-btnBack.addEventListener('click', () => {
-    loginForm.classList.add('hidden');
-    stepWallet.classList.remove('hidden');
+DOM.btnBack.addEventListener('click', () => {
+    DOM.loginForm.classList.add('hidden');
+    DOM.stepWallet.classList.remove('hidden');
 });
 
 function goToStep2() {
-    stepWallet.classList.add('hidden');
-    loginForm.classList.remove('hidden');
-    usernameInput.focus();
+    DOM.stepWallet.classList.add('hidden');
+    DOM.loginForm.classList.remove('hidden');
+    DOM.usernameInput.focus();
 }
 
 // ═══ LOGIN ═══
-loginForm.addEventListener('submit', (e) => {
+DOM.loginForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const name = usernameInput.value.trim();
+    const name = DOM.usernameInput.value.trim();
     if (!name) return;
     currentUsername = name;
     if (ws.readyState === WebSocket.OPEN) {
@@ -179,15 +184,13 @@ loginForm.addEventListener('submit', (e) => {
             wallet: currentWalletAddress
         }));
     }
-    loginOverlay.classList.add('hidden');
-    chatPage.classList.remove('hidden');
-    chatInput.focus();
+    DOM.loginOverlay.classList.add('hidden');
+    DOM.chatPage.classList.remove('hidden');
+    DOM.chatInput.focus();
 });
 
 // ═══ COLOR PICKER ═══
-const colorPicker = document.getElementById('color-picker');
-
-colorPicker.addEventListener('change', (e) => {
+DOM.colorPicker.addEventListener('change', (e) => {
     if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
             type: 'update-color',
@@ -197,15 +200,15 @@ colorPicker.addEventListener('change', (e) => {
 });
 
 // ═══ SEND ═══
-chatForm.addEventListener('submit', (e) => {
+DOM.chatForm.addEventListener('submit', (e) => {
     e.preventDefault();
-    const msg = chatInput.value.trim();
+    const msg = DOM.chatInput.value.trim();
     if (!msg) return;
     if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'chat', text: msg }));
     }
-    chatInput.value = '';
-    chatInput.focus();
+    DOM.chatInput.value = '';
+    DOM.chatInput.focus();
 });
 
 // ═══ RENDER ═══
@@ -222,57 +225,60 @@ function appendChatMessage(data) {
     const div = document.createElement('div');
     div.className = 'chat-msg';
 
-    // Update: Use the color from the message data
     div.innerHTML = `
     <div class="msg-header">
-      <span class="msg-username" style="color: ${data.color}">${data.username}</span>
+      <span class="msg-username"></span>
       <span class="msg-time">${formatTime(data.timestamp)}</span>
     </div>
     <div class="msg-text"></div>`;
 
     // Secure text insertion
+    const nameEl = div.querySelector('.msg-username');
+    nameEl.textContent = data.username;
+    nameEl.style.color = data.color;
+
     div.querySelector('.msg-text').innerText = data.text.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 
-    chatMessages.appendChild(div);
+    DOM.chatMessages.appendChild(div);
 }
 
 function appendSystemMessage(data) {
     const div = document.createElement('div');
     div.className = 'system-msg';
     div.textContent = data.text;
-    chatMessages.appendChild(div);
+    DOM.chatMessages.appendChild(div);
 }
 
 function updateUserList(users, total) {
-    userListEl.innerHTML = '';
+    DOM.userList.innerHTML = '';
 
     const uCount = users ? users.length : 0;
     const tCount = total || uCount;
     const gCount = Math.max(0, tCount - uCount);
 
-    if (onlineCount) {
-        onlineCount.textContent = `${uCount} ${uCount === 1 ? 'user' : 'users'}, ${gCount} ${gCount === 1 ? 'guest' : 'guests'}`;
+    if (DOM.onlineCount) {
+        DOM.onlineCount.textContent = `${uCount} ${uCount === 1 ? 'user' : 'users'}, ${gCount} ${gCount === 1 ? 'guest' : 'guests'}`;
     }
 
     if (!users || users.length === 0) {
-        userListEl.innerHTML = '<li class="no-users">no one here yet</li>';
+        DOM.userList.innerHTML = '<li class="no-users">no one here yet</li>';
         return;
     }
     users.forEach(u => {
         const li = document.createElement('li');
         li.style.color = u.color;
         li.textContent = u.username;
-        userListEl.appendChild(li);
+        DOM.userList.appendChild(li);
     });
 }
 
 function updateVisitorCount(count) {
-    if (visitorNum) visitorNum.textContent = count.toLocaleString();
-    if (counterValue) counterValue.textContent = count.toLocaleString();
+    if (DOM.visitorNum) DOM.visitorNum.textContent = count.toLocaleString();
+    if (DOM.counterValue) DOM.counterValue.textContent = count.toLocaleString();
 }
 
 function scrollToBottom() {
-    chatMessages.scrollTop = chatMessages.scrollHeight;
+    DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
 }
 
 // ═══ CURSOR TRAIL ═══
@@ -318,8 +324,8 @@ function updateRemoteCursor(data) {
         const el = document.createElement('div');
         el.className = 'remote-cursor';
         el.innerHTML = `
-            <span class="remote-cursor-dot" style="background: ${data.color};"></span>
-            <span class="remote-cursor-label" style="color: ${data.color};">${data.username}</span>
+            <span class="remote-cursor-dot"></span>
+            <span class="remote-cursor-label"></span>
         `;
         document.body.appendChild(el);
         cursor = { el, timeout: null };
@@ -327,8 +333,11 @@ function updateRemoteCursor(data) {
     }
 
     // Update color (in case user changed it via color picker)
-    cursor.el.querySelector('.remote-cursor-dot').style.background = data.color;
-    cursor.el.querySelector('.remote-cursor-label').style.color = data.color;
+    const dot = cursor.el.querySelector('.remote-cursor-dot');
+    const label = cursor.el.querySelector('.remote-cursor-label');
+    dot.style.background = data.color;
+    label.style.color = data.color;
+    label.textContent = data.username;
 
     const x = (data.x / 100) * window.innerWidth;
     const y = (data.y / 100) * window.innerHeight;
@@ -349,16 +358,12 @@ function removeRemoteCursor(id) {
 }
 
 // ═══ GAME & ADMIN UI ═══
-const btnAdminGame = document.getElementById('btn-admin-game');
-const gameOverlay = document.getElementById('game-overlay');
-const gameMessage = document.getElementById('game-message');
 
 // Admin Trigger (only works if element exists/visible)
-if (btnAdminGame) {
-    btnAdminGame.addEventListener('click', () => {
+if (DOM.btnAdminGame) {
+    DOM.btnAdminGame.addEventListener('click', () => {
         if (ws.readyState === WebSocket.OPEN) {
-            const roundSelect = document.getElementById('round-select');
-            const rounds = roundSelect ? roundSelect.value : "1";
+            const rounds = DOM.roundSelect ? DOM.roundSelect.value : "1";
             ws.send(JSON.stringify({ type: 'admin-start-game', rounds }));
         } else {
             console.error('WebSocket not open');
@@ -367,8 +372,8 @@ if (btnAdminGame) {
 }
 
 // Game Click
-if (gameOverlay) {
-    gameOverlay.addEventListener('mousedown', () => {
+if (DOM.gameOverlay) {
+    DOM.gameOverlay.addEventListener('mousedown', () => {
         // Simple state check (server handles DQ too)
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'game-click' }));
@@ -377,68 +382,68 @@ if (gameOverlay) {
 }
 
 function showGameOverlay(state, data) {
-    gameOverlay.classList.remove('hidden', 'state-ready', 'state-go', 'state-dq');
-    gameMessage.style.color = '';
+    DOM.gameOverlay.classList.remove('hidden', 'state-ready', 'state-go', 'state-dq');
+    DOM.gameMessage.style.color = '';
 
     if (state === 'ready') {
-        gameOverlay.classList.add('state-ready');
+        DOM.gameOverlay.classList.add('state-ready');
         const roundText = data?.totalRounds > 1 ? `<div style="font-size: 24px; opacity: 0.8; margin-bottom: 10px;">ROUND ${data.round} / ${data.totalRounds}</div>` : '';
-        gameMessage.innerHTML = `${roundText}WAIT FOR IT...`;
+        DOM.gameMessage.innerHTML = `${roundText}WAIT FOR IT...`;
     } else if (state === 'go') {
-        gameOverlay.classList.add('state-go');
-        gameMessage.textContent = "CLICK!";
+        DOM.gameOverlay.classList.add('state-go');
+        DOM.gameMessage.textContent = "CLICK!";
     } else if (state === 'dq') {
-        gameOverlay.classList.add('state-dq');
-        gameMessage.textContent = "FALSE START ❌";
+        DOM.gameOverlay.classList.add('state-dq');
+        DOM.gameMessage.textContent = "FALSE START ❌";
         setTimeout(() => {
-            if (gameOverlay.classList.contains('state-dq')) {
-                gameOverlay.classList.remove('state-dq');
-                gameOverlay.classList.add('hidden');
+            if (DOM.gameOverlay.classList.contains('state-dq')) {
+                DOM.gameOverlay.classList.remove('state-dq');
+                DOM.gameOverlay.classList.add('hidden');
             }
         }, 2000);
     } else if (state === 'win') {
-        gameOverlay.classList.remove('state-go');
-        gameOverlay.style.background = '#000';
+        DOM.gameOverlay.classList.remove('state-go');
+        DOM.gameOverlay.style.background = '#000';
 
         let scoreHtml = '';
         if (data.totalRounds > 1 && data.scores) {
             scoreHtml = `<div style="font-size: 18px; color: #888; margin-top: 20px;">Series Score: ${Object.entries(data.scores).map(([u, w]) => `${u}: ${w}`).join(' | ')}</div>`;
         }
 
-        gameMessage.innerHTML = `
+        DOM.gameMessage.innerHTML = `
             <div style="font-size: 24px; opacity: 0.6; margin-bottom: 10px;">ROUND ${data.round} WINNER</div>
             <div style="color: ${data.color || '#fff'}">${data.username}</div>
             <div style="font-size: 30px; color: #888;">${data.time}ms</div>
             ${scoreHtml}
         `;
         setTimeout(() => {
-            if (!gameOverlay.classList.contains('state-ready') && !gameOverlay.classList.contains('state-go')) {
-                gameOverlay.classList.add('hidden');
-                gameOverlay.style.background = '';
+            if (!DOM.gameOverlay.classList.contains('state-ready') && !DOM.gameOverlay.classList.contains('state-go')) {
+                DOM.gameOverlay.classList.add('hidden');
+                DOM.gameOverlay.style.background = '';
             }
         }, 3500);
     } else if (state === 'cancel') {
-        gameOverlay.classList.remove('state-ready', 'state-go', 'state-dq');
-        gameOverlay.style.background = '#222';
-        gameMessage.textContent = "ROUND SKIPPED 💀";
+        DOM.gameOverlay.classList.remove('state-ready', 'state-go', 'state-dq');
+        DOM.gameOverlay.style.background = '#222';
+        DOM.gameMessage.textContent = "ROUND SKIPPED 💀";
         setTimeout(() => {
-            gameOverlay.classList.add('hidden');
-            gameOverlay.style.background = '';
+            DOM.gameOverlay.classList.add('hidden');
+            DOM.gameOverlay.style.background = '';
         }, 2000);
     } else if (state === 'series-end') {
-        gameOverlay.classList.remove('state-ready', 'state-go', 'state-dq');
-        gameOverlay.style.background = '#000';
-        gameOverlay.classList.remove('hidden');
+        DOM.gameOverlay.classList.remove('state-ready', 'state-go', 'state-dq');
+        DOM.gameOverlay.style.background = '#000';
+        DOM.gameOverlay.classList.remove('hidden');
 
-        gameMessage.innerHTML = `
+        DOM.gameMessage.innerHTML = `
             <div style="font-size: 30px; color: #FFD700; margin-bottom: 20px;">🏆 SERIES CHAMPION 🏆</div>
             <div style="color: #fff; font-size: 60px;">${data.winner}</div>
             <div style="font-size: 20px; color: #888; margin-top: 20px;">Final Score: ${Object.entries(data.scores).map(([u, w]) => `${u}: ${w}`).join(' | ')}</div>
         `;
 
         setTimeout(() => {
-            gameOverlay.classList.add('hidden');
-            gameOverlay.style.background = '';
+            DOM.gameOverlay.classList.add('hidden');
+            DOM.gameOverlay.style.background = '';
         }, 6000);
     }
 }
