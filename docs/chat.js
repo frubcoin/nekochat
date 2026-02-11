@@ -36,6 +36,7 @@ function connectWebSocket(roomId) {
 
     ws.addEventListener('open', () => {
         console.log(`connected to ${roomId}`);
+        isSwitchingRoom = false;
         if (currentUsername) {
             ws.send(JSON.stringify({
                 type: 'join',
@@ -90,7 +91,10 @@ function connectWebSocket(roomId) {
                     // Already in chat — room switch error
                     appendSystemMessage({ text: `🔒 ${data.reason || 'Cannot access this room.'}` });
                     scrollToBottom();
-                    switchRoom('main-lobby');
+                    // Only switch back if we're not already on lobby
+                    if (currentRoom !== 'main-lobby') {
+                        switchRoom('main-lobby');
+                    }
                 } else {
                     alert(data.reason || 'Join failed');
                     DOM.loginForm.classList.add('hidden');
@@ -271,7 +275,7 @@ function renderRoomList() {
 }
 
 function switchRoom(roomId) {
-    if (roomId === currentRoom) return;
+    if (roomId === currentRoom && ws && ws.readyState === WebSocket.OPEN) return;
     isSwitchingRoom = true;
     currentRoom = roomId;
     DOM.chatMessages.innerHTML = '';
@@ -282,17 +286,16 @@ function switchRoom(roomId) {
         reconnectTimer = null;
     }
 
-    // Close existing connection
+    // Close existing connection — null it so its close handler can't trigger reconnect
     if (ws) {
-        ws.close();
+        const oldWs = ws;
+        ws = null;
+        oldWs.close();
     }
 
-    // Connect to new room after brief delay for clean close
-    setTimeout(() => {
-        isSwitchingRoom = false;
-        connectWebSocket(roomId);
-        renderRoomList();
-    }, 150);
+    // Connect to new room immediately
+    connectWebSocket(roomId);
+    renderRoomList();
 }
 
 // ═══ WALLET FLOW (Phantom only) ═══
