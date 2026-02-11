@@ -21,50 +21,35 @@
 
     <div id="login-box">
       <div class="login-wordmark">tryl.chat</div>
-      <!-- STEP 1: WALLET -->
       <div id="step-wallet">
-        <p class="login-subtitle">connect an authorized solana wallet</p>
+        <p class="login-subtitle">verify your wallet to proceed</p>
         <div class="login-actions">
-          <button id="btn-phantom" class="btn-primary" style="background: #AB9FF2; color: #000;">
-            Connect Phantom
+          <button id="btn-phantom" class="btn-primary" style="background: #AB9FF2; color: #000; width: 100%;">
+            Connect Solana Wallet
           </button>
-          <div class="input-group input-group--flush" style="margin-top: 12px;">
-            <input type="text" id="manual-wallet-input" placeholder="enter wallet address manually"
-              class="input-minimal input-minimal--left">
-            <button id="btn-manual-submit" class="btn-icon btn-icon--right" aria-label="Submit wallet">
-              ➔
-            </button>
-          </div>
-        </div>
-      </div>
 
-      <!-- STEP 1.5: SIGNATURE (MANUAL ONLY) -->
-      <div id="step-sign" class="hidden">
-        <p class="login-subtitle">verify wallet ownership</p>
-        <div class="login-actions">
-          <p id="sign-message-display"
-            style="font-size: 11px; color: var(--text-muted); background: var(--bg-surface); padding: 8px; border-radius: 4px; border: 1px solid var(--border); margin-bottom: 8px; word-break: break-word; line-height: 1.4;">
-          </p>
-          <input type="text" id="signature-input" placeholder="paste signature (base58)"
-            style="font-family: var(--font-body); font-size: 14px; background: var(--bg-surface); border: 1px solid var(--border); color: var(--text); padding: 12px; border-radius: var(--radius); outline: none; width: 100%; text-align: center;">
-          <button id="btn-signature-submit" class="btn-primary" style="margin-top: 12px;">Verify & Continue</button>
-          <button type="button" id="btn-back-sign" class="btn-text" style="font-size: 12px; margin-top: 8px;">←
-            back</button>
+          <div style="display: flex; gap: 8px; margin-top: 12px; width: 100%;">
+            <input type="text" id="manual-wallet-input" placeholder="manual address" class="input-minimal"
+              style="flex: 1;">
+            <button id="btn-manual-submit" class="btn-icon" style="width: 44px; flex-shrink: 0;">➔</button>
+          </div>
+          <button id="btn-guest-login" class="btn-text"
+            style="font-size: 11px; margin-top: 12px; opacity: 0.6;">Continue as Guest (Read Only)</button>
         </div>
       </div>
 
       <!-- STEP 2: USERNAME -->
       <form id="login-form" class="hidden">
-        <p class="login-subtitle">enter a name to start chatting</p>
+        <p class="login-subtitle">how should we call you?</p>
         <div class="login-actions">
-          <input type="text" id="username-input" maxlength="20" placeholder="your name" autocomplete="off">
-          <button type="submit" class="btn-primary">Join →</button>
-          <button type="button" id="btn-back-wallet" class="btn-text" style="font-size: 12px; margin-top: 8px;">←
-            back</button>
+          <input type="text" id="username-input" maxlength="20" placeholder="enter nickname" autocomplete="off">
+          <button type="submit" class="btn-primary">START CHATTING</button>
+          <button type="button" id="btn-back-wallet" class="btn-text" style="font-size: 11px; margin-top: 8px;">← use a
+            different wallet</button>
         </div>
       </form>
 
-      <p class="login-hint">be kind to each other</p>
+      <p class="login-hint">verified holders get 🔒 lounge access</p>
     </div>
   </div>
 

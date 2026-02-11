@@ -150,6 +150,7 @@ const DOM = {
     manualInput: document.getElementById('manual-wallet-input'),
     btnManualSubmit: document.getElementById('btn-manual-submit'),
     btnBack: document.getElementById('btn-back-wallet'),
+    btnGuestLogin: document.getElementById('btn-guest-login'),
     btnAdminGame: document.getElementById('btn-admin-game'),
     adminPanel: document.getElementById('admin-panel'),
     roundSelect: document.getElementById('round-select'),
@@ -157,11 +158,6 @@ const DOM = {
     gameMessage: document.getElementById('game-message'),
     pinnedBanner: document.getElementById('pinned-banner'),
     pinText: document.getElementById('pin-text'),
-    stepSign: document.getElementById('step-sign'),
-    signMessageDisplay: document.getElementById('sign-message-display'),
-    signatureInput: document.getElementById('signature-input'),
-    btnSignatureSubmit: document.getElementById('btn-signature-submit'),
-    btnBackSign: document.getElementById('btn-back-sign'),
     cursorOverlay: document.getElementById('cursor-overlay'),
 };
 
@@ -188,46 +184,36 @@ const COMMANDS = [
 
 // ═══ WALLET FLOW ═══
 DOM.btnPhantom.addEventListener('click', async () => {
-    console.log('Phantom button clicked');
-    if (!window.solana || !window.solana.isPhantom) {
-        alert('Phantom wallet not found! Please install it.');
+    // Detect any available Solana provider
+    const provider = window.solana || window.solflare || window.backpack;
+
+    if (!provider) {
+        alert('No Solana wallet found! Please install Phantom or Solflare.');
         window.open('https://phantom.app/', '_blank');
         return;
     }
 
     try {
-        console.log('Connecting to Phantom...');
-        const resp = await window.solana.connect();
+        const resp = await provider.connect();
         const wallet = resp.publicKey.toString();
-        console.log('Connected wallet:', wallet);
 
-        // Immediately request signature
-        console.log('Requesting signature for:', SIGN_MESSAGE);
-
-        // Explicit alert for user confirmation
-        alert('Check Phantom for a signature request!');
-
+        // Use generic signMessage if available
         const encodedMessage = new TextEncoder().encode(SIGN_MESSAGE);
-        const signedMessage = await window.solana.signMessage(encodedMessage, "utf8");
-        console.log('Signature received');
+        const signedMessage = await provider.signMessage(encodedMessage, "utf8");
 
         currentWalletAddress = wallet;
 
-        // bs58 handling - bundle.run often puts it in bs58 global
+        // bs58 handling
         const encoder = window.bs58;
-        if (!encoder) {
-            console.error('bs58 global not found. Found:', Object.keys(window).filter(k => k.includes('58')));
-            throw new Error('Cryptographic library (bs58) failed to load. Please refresh the page.');
-        }
+        if (!encoder) throw new Error('bs58 library not loaded');
 
         currentSignature = encoder.encode(signedMessage.signature);
-        console.log('Signature encoded:', currentSignature);
+        console.log('[AUTH] Verified wallet:', wallet);
 
         goToStep2();
     } catch (err) {
-        console.error('Phantom Error:', err);
-        const msg = err.message || JSON.stringify(err);
-        alert(`Verification failed: ${msg}`);
+        console.error('[AUTH] Wallet connection failed:', err);
+        alert(`Verification failed: ${err.message || 'Signature rejected'}`);
     }
 });
 
@@ -235,37 +221,20 @@ function submitManualWallet() {
     const val = DOM.manualInput.value.trim();
     if (val) {
         currentWalletAddress = val;
-        goToStepSign();
-    }
-}
-
-function submitSignature() {
-    const val = DOM.signatureInput.value.trim();
-    if (val) {
-        currentSignature = val;
+        currentSignature = null; // No signature for manual entry by default
         goToStep2();
     }
 }
 
-DOM.btnSignatureSubmit.addEventListener('click', submitSignature);
-DOM.signatureInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submitSignature();
-});
-
-DOM.btnBackSign.addEventListener('click', () => {
-    DOM.stepSign.classList.add('hidden');
-    DOM.stepWallet.classList.remove('hidden');
-});
-
+DOM.btnManualSubmit.addEventListener('click', submitManualWallet);
 DOM.manualInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitManualWallet();
 });
 
-DOM.btnManualSubmit.addEventListener('click', submitManualWallet);
-
-if (DOM.btnSkip) {
-    DOM.btnSkip.addEventListener('click', () => {
+if (DOM.btnGuestLogin) {
+    DOM.btnGuestLogin.addEventListener('click', () => {
         currentWalletAddress = null;
+        currentSignature = null;
         goToStep2();
     });
 }
@@ -277,17 +246,8 @@ if (DOM.btnBack) {
     });
 }
 
-function goToStepSign() {
-    DOM.stepWallet.classList.add('hidden');
-    DOM.stepSign.classList.remove('hidden');
-    DOM.signMessageDisplay.textContent = SIGN_MESSAGE;
-    DOM.signatureInput.value = '';
-    DOM.signatureInput.focus();
-}
-
 function goToStep2() {
     DOM.stepWallet.classList.add('hidden');
-    DOM.stepSign.classList.add('hidden');
     DOM.loginForm.classList.remove('hidden');
     DOM.usernameInput.focus();
 }

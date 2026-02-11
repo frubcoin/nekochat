@@ -207,22 +207,26 @@ export default class NekoChat implements Party.Server {
 
       let hasAccess = whitelisted;
 
-      // If it's a gated room, also allow authenticated token holders
-      if (!hasAccess && gatedConfig && wallet) {
-        const balance = await this.getTokenBalance(wallet, gatedConfig.mint);
-        if (balance >= gatedConfig.minBalance) {
+      // If not whitelisted, check token balance if we have a verified wallet
+      if (!hasAccess && wallet && signature) {
+        // Primary gating token ($Gh6c)
+        const primaryMint = "Gh6cBL11RRwVYHUyoGFXdYJXhWW1HETnPriNZN71pump";
+        const targetMint = gatedConfig ? gatedConfig.mint : primaryMint;
+
+        const balance = await this.getTokenBalance(wallet, targetMint);
+        if (balance >= 1) {
           hasAccess = true;
-          console.log(`[AUTH] Gated Access granted via Token balance for ${wallet} in room ${roomId} (Balance: ${balance})`);
+          console.log(`[AUTH] Access granted via Token balance for ${wallet} in room ${roomId} (Balance: ${balance})`);
         }
       }
 
       // Final decision
       if (!hasAccess) {
-        const reason = roomId === "main-lobby"
-          ? "Unauthorized. The Lobby is restricted to whitelisted members."
-          : `Gated Access. This room requires at least ${gatedConfig?.minBalance || 1} $Gh6c token.`;
+        const reason = gatedConfig
+          ? `Lounge Access Denied. This room requires holding the $Gh6c token.`
+          : `Unauthorized. Your wallet is not on the whitelist and doesn't hold required tokens.`;
 
-        console.log(`[AUTH] Access DENIED for ${wallet} in ${roomId}. Reason: ${reason}`);
+        console.log(`[AUTH] Access DENIED for ${wallet || "Guest"} in ${roomId}. Reason: ${reason}`);
         sender.send(JSON.stringify({ type: "join-error", reason }));
         return;
       }
