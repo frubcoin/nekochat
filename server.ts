@@ -232,21 +232,25 @@ export default class NekoChat implements Party.Server {
       const isGatedRoom = GATED_ROOMS.includes(this.room.id);
 
       if (isGatedRoom) {
-        // Token-gated rooms: only require holding the token
-        if (!wallet) {
-          sender.send(JSON.stringify({
-            type: "join-error",
-            reason: "You must connect a wallet to access this room."
-          }));
-          return;
-        }
-        const tokenResult = await this.verifyTokenHolder(wallet);
-        if (!tokenResult.ok) {
-          sender.send(JSON.stringify({
-            type: "join-error",
-            reason: `Token check failed: ${tokenResult.detail}`
-          }));
-          return;
+        // Admin wallets bypass token gate
+        const isAdmin = this.getAdminWallets().includes(wallet || "");
+        if (!isAdmin) {
+          // Token-gated rooms: require holding the token
+          if (!wallet) {
+            sender.send(JSON.stringify({
+              type: "join-error",
+              reason: "You must connect a wallet to access this room."
+            }));
+            return;
+          }
+          const tokenResult = await this.verifyTokenHolder(wallet);
+          if (!tokenResult.ok) {
+            sender.send(JSON.stringify({
+              type: "join-error",
+              reason: `Token check failed: ${tokenResult.detail}`
+            }));
+            return;
+          }
         }
       } else {
         // Non-gated rooms: whitelist check
