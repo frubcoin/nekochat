@@ -626,20 +626,21 @@ body {
   color: var(--text-muted);
 }
 
-display: flex;
-align-items: center;
-justify-content: center;
-background: transparent;
-color: #fff;
-border: none;
-border-radius: 8px;
-cursor: pointer;
-width: 40px;
-/* Fixed width for icon */
-height: 42px;
-padding: 0;
-transition: opacity 0.2s;
-flex-shrink: 0;
+.btn-send {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: #000;
+  border: none;
+  cursor: pointer;
+  width: 40px;
+  /* Fixed width for icon */
+  height: 42px;
+  padding: 0;
+  transition: opacity 0.2s;
+  flex-shrink: 0;
+  filter: invert(1);
 }
 
 .btn-send:hover {
