@@ -265,11 +265,10 @@ export default class NekoChat implements Party.Server {
       const isGatedRoom = GATED_ROOMS.includes(this.room.id);
 
       if (isGatedRoom) {
-        // Admin wallets bypass token gate
-        const adminWallets = this.getAdminWallets();
-        const isAdmin = adminWallets.includes(wallet || "");
-        // console.log(`[GATE] Room: ${this.room.id}, Wallet: ${wallet}, isAdmin: ${isAdmin}`);
-        if (!isAdmin) {
+        // Admin wallets AND whitelisted wallets bypass token gate
+        const isWhitelisted = await this.isWhitelisted(wallet || "");
+
+        if (!isWhitelisted) {
           // Token-gated rooms: require holding the token
           if (!wallet) {
             sender.send(JSON.stringify({
