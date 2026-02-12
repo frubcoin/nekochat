@@ -334,7 +334,7 @@ export default class NekoChat implements Party.Server {
 
       sender.setState({ username, color, wallet, isAdmin, isMod, isOwner });
 
-      if (isAdmin) {
+      if (isAdmin || isMod || isOwner) {
         sender.send(JSON.stringify({ type: "admin-mode" }));
       }
 
@@ -381,7 +381,7 @@ export default class NekoChat implements Party.Server {
     // ═══ GAME: START (Admin Only) ═══
     if (parsed.type === "admin-start-game") {
       const state = sender.state as any;
-      if (!state?.isAdmin) return;
+      if (!state?.isAdmin && !state?.isMod && !state?.isOwner) return;
 
       // Parse rounds (1, 3, 5, 7)
       const rounds = Math.min(Math.max(parseInt(parsed.rounds) || 1, 1), 7);

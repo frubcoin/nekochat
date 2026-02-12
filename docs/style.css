@@ -346,7 +346,7 @@ body {
 
 .admin-badge.mini {
   font-size: 8px;
-  padding: 1px 3px;
+  padding: 1px 5px;
   margin-left: 4px;
 }
 
@@ -561,7 +561,7 @@ body {
   background: #ff3333;
   color: #fff;
   font-size: 9px;
-  padding: 0 10px;
+  padding: 0 8px;
   border-radius: 20px;
   font-weight: 700;
   vertical-align: middle;
