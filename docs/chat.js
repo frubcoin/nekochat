@@ -916,8 +916,15 @@ if (DOM.btnAdminGame) {
 
 // Game Click
 if (DOM.gameOverlay) {
+    const hammerGame = new Hammer(DOM.gameOverlay);
+    hammerGame.on('tap', () => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'game-click' }));
+        }
+    });
+
     DOM.gameOverlay.addEventListener('mousedown', () => {
-        // Simple state check (server handles DQ too)
+        // Fallback for desktop clicks
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'game-click' }));
         }
@@ -1005,49 +1012,50 @@ if (DOM.sidebar) {
     DOM.sidebar.addEventListener('click', (e) => e.stopPropagation());
 }
 
-// ═══ SWIPE GESTURES (ZingTouch) ═══
+// ═══ GESTURES (Hammer.js) ═══
 function setupGestures() {
-    if (typeof ZingTouch === 'undefined') {
-        console.warn('ZingTouch not loaded yet, retrying...');
+    if (typeof Hammer === 'undefined') {
+        console.warn('Hammer.js not loaded yet, retrying...');
         setTimeout(setupGestures, 500);
         return;
     }
 
-    const region = new ZingTouch.Region(document.body);
+    const mc = new Hammer.Manager(document.body, {
+        recognizers: [
+            [Hammer.Tap],
+            [Hammer.Swipe, { direction: Hammer.DIRECTION_HORIZONTAL }]
+        ]
+    });
 
-    // Unify Tapping for responsiveness (bypasses mobile click delay/hover quirks)
-    region.bind(document.body, 'tap', (e) => {
-        const target = e.detail.events[0].target;
+    // 1. Universal Taps (Bypass mobile click delay)
+    mc.on('tap', (e) => {
+        const target = e.target;
 
-        // 1. Sidebar Backdrop (Click outside to close)
+        // Sidebar Backdrop (Close menus)
         if (target.id === 'sidebar-backdrop') {
             document.body.classList.remove('mobile-menu-active', 'mobile-users-active');
             return;
         }
 
-        // 2. Universal Button/Item Taps (Catch-all for zero-latency)
+        // Catch buttons, room items, or any clickable UI element
         const clickable = target.closest('button, .room-item');
         if (clickable) {
-            // Trigger native click for immediate response
             clickable.click();
             return;
         }
     });
 
-    region.bind(document.body, 'swipe', (e) => {
-        const data = e.detail.data[0];
-        const angle = data.currentDirection; // 0 to 360
+    // 2. Swipe Gestures for Sidebars
+    mc.on('swiperight', () => {
+        // Open Rooms List
+        document.body.classList.add('mobile-menu-active');
+        document.body.classList.remove('mobile-users-active');
+    });
 
-        // Swipe Right (Open Rooms) - Angle near 0 or 360
-        if (angle >= 315 || angle <= 45) {
-            document.body.classList.add('mobile-menu-active');
-            document.body.classList.remove('mobile-users-active');
-        }
-        // Swipe Left (Open Users) - Angle near 180
-        else if (angle >= 135 && angle <= 225) {
-            document.body.classList.add('mobile-users-active');
-            document.body.classList.remove('mobile-menu-active');
-        }
+    mc.on('swipeleft', () => {
+        // Open Users List
+        document.body.classList.add('mobile-users-active');
+        document.body.classList.remove('mobile-menu-active');
     });
 }
 
