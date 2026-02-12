@@ -499,6 +499,7 @@ DOM.loginForm.addEventListener('submit', (e) => {
 
 // ═══ COLOR PICKER ═══
 let colorPickerInstance = null;
+let fallbackColorInput = null;
 let userColor = '#ffffff';
 
 function loadWalletColor(wallet) {
@@ -555,6 +556,39 @@ function setupColorPicker() {
         }
     });
 
+    function applyColor(newColor) {
+        userColor = newColor;
+        btnColor.style.backgroundColor = newColor;
+
+        try {
+            // Save to both generic and wallet-specific
+            localStorage.setItem('chat_color', newColor);
+            if (currentWalletAddress) {
+                localStorage.setItem(`chat_color_${currentWalletAddress}`, newColor);
+            }
+        } catch (e) { /* ignore */ }
+
+        // Send update to server
+        if (ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+                type: 'update-color',
+                color: newColor
+            }));
+        }
+    }
+
+    function mountFallbackPicker() {
+        if (fallbackColorInput) return;
+        fallbackColorInput = document.createElement('input');
+        fallbackColorInput.type = 'color';
+        fallbackColorInput.value = userColor;
+        fallbackColorInput.setAttribute('aria-label', 'Pick chat name color');
+        fallbackColorInput.addEventListener('input', (event) => {
+            applyColor(event.target.value);
+        });
+        popover.appendChild(fallbackColorInput);
+    }
+
     function showColorPicker() {
         if (!colorPickerInstance && window.iro) {
             colorPickerInstance = new iro.ColorPicker(popover, {
@@ -566,26 +600,13 @@ function setupColorPicker() {
             });
 
             colorPickerInstance.on('color:change', function (color) {
-                const newColor = color.hexString;
-                userColor = newColor;
-                btnColor.style.backgroundColor = newColor;
-
-                try {
-                    // Save to both generic and wallet-specific
-                    localStorage.setItem('chat_color', newColor);
-                    if (currentWalletAddress) {
-                        localStorage.setItem(`chat_color_${currentWalletAddress}`, newColor);
-                    }
-                } catch (e) { /* ignore */ }
-
-                // Send update to server
-                if (ws && ws.readyState === WebSocket.OPEN) {
-                    ws.send(JSON.stringify({
-                        type: 'update-color',
-                        color: newColor
-                    }));
-                }
+                applyColor(color.hexString);
             });
+        } else if (!window.iro) {
+            mountFallbackPicker();
+            fallbackColorInput.value = userColor;
+        } else if (colorPickerInstance) {
+            colorPickerInstance.setColor(userColor);
         }
         popover.classList.remove('hidden');
     }
@@ -740,52 +761,75 @@ function formatTime(ts) {
     return `${h}:${m} ${ampm}`;
 }
 
+async function getGoogleAiLanguageDetector() {
+    if (!window.ai?.languageDetector?.capabilities || !window.ai?.languageDetector?.create) {
+        return null;
+    }
+
+    const capabilities = await window.ai.languageDetector.capabilities();
+    if (!capabilities || capabilities.available === 'no') return null;
+
+    return window.ai.languageDetector.create();
+}
+
+async function getGoogleAiTranslator(sourceLang, targetLang) {
+    if (!sourceLang || !targetLang || sourceLang === targetLang) return null;
+    if (!window.ai?.translator?.capabilities || !window.ai?.translator?.create) {
+        return null;
+    }
+
+    const capabilities = await window.ai.translator.capabilities({
+        sourceLanguage: sourceLang,
+        targetLanguage: targetLang
+    });
+
+    if (!capabilities || capabilities.available === 'no') return null;
+
+    return window.ai.translator.create({
+        sourceLanguage: sourceLang,
+        targetLanguage: targetLang
+    });
+}
+
 async function translateText(text, targetLang) {
     if (!text || !targetLang) return null;
 
-    // --- TIER 1: Chrome Built-in AI APIs (Language Detection & Translation) ---
-    // (Available in Chrome with Gemini Nano)
-    if (window.ai && window.ai.languageDetector && window.ai.translator) {
-        try {
-            // Step 1: Detect Language
-            const detectorStatus = await window.ai.languageDetector.capabilities();
-            if (detectorStatus.available !== 'no') {
-                const detector = await window.ai.languageDetector.create();
-                const results = await detector.detect(text);
-                if (results && results.length > 0) {
-                    const detectedLang = results[0].detectedLanguage;
-                    console.log(`[TRANSLATION] Detected: ${detectedLang} (confidence: ${results[0].confidence})`);
+    // --- TIER 1: Google client-side AI APIs in Chrome (Gemini Nano) ---
+    try {
+        const detector = await getGoogleAiLanguageDetector();
+        let detectedLang = null;
 
-                    // If detected as the target language, skip
-                    if (detectedLang === targetLang) {
-                        console.log(`[TRANSLATION] Match target language (${targetLang}), skipping.`);
-                        return null;
-                    }
-                }
+        if (detector) {
+            const detections = await detector.detect(text);
+            if (Array.isArray(detections) && detections.length > 0) {
+                const top = detections[0];
+                detectedLang = top.detectedLanguage;
+                console.log(`[TRANSLATION] Google AI detected ${detectedLang} (${top.confidence})`);
             }
-
-            // Step 2: Translate
-            const translatorStatus = await window.ai.translator.capabilities();
-            if (translatorStatus.available !== 'no') {
-                console.log(`[TRANSLATION] Using Chrome AI Translator API`);
-                const translator = await window.ai.translator.create({
-                    sourceLanguage: 'auto', // Most models handle auto-detection internally too
-                    targetLanguage: targetLang
-                });
-                const result = await translator.translate(text);
-                if (result && result.trim().toLowerCase() !== text.trim().toLowerCase()) {
-                    return result;
-                }
-            }
-        } catch (err) {
-            console.warn('[TRANSLATION] Chrome AI APIs failed or not ready, falling back:', err);
         }
-    } else if (window.translation && typeof window.translation.canTranslate === 'function') {
-        // Fallback to older window.translation API if window.ai is not present
+
+        if (detectedLang && detectedLang === targetLang) {
+            return null;
+        }
+
+        if (detectedLang) {
+            const translator = await getGoogleAiTranslator(detectedLang, targetLang);
+            if (translator) {
+                const translated = await translator.translate(text);
+                if (translated && translated.trim().toLowerCase() !== text.trim().toLowerCase()) {
+                    return translated;
+                }
+            }
+        }
+    } catch (err) {
+        console.warn('[TRANSLATION] Google client-side AI APIs failed, falling back:', err);
+    }
+
+    // --- TIER 2: Legacy browser translation API fallback ---
+    if (window.translation && typeof window.translation.canTranslate === 'function') {
         try {
             const status = await window.translation.canTranslate({ targetLanguage: targetLang });
             if (status !== 'no') {
-                console.log(`[TRANSLATION] Using window.translation API`);
                 const translator = await window.translation.createTranslator({ targetLanguage: targetLang });
                 const result = await translator.translate(text);
                 if (result && result.trim().toLowerCase() !== text.trim().toLowerCase()) {
@@ -797,7 +841,7 @@ async function translateText(text, targetLang) {
         }
     }
 
-    // --- TIER 2: Server-Side Translation (Bypasses CORS) ---
+    // --- TIER 3: Server-side translation fallback ---
     return new Promise((resolve) => {
         if (!ws || ws.readyState !== WebSocket.OPEN) return resolve(null);
 

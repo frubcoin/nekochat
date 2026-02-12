@@ -756,6 +756,10 @@ body {
   animation: slideUp 0.15s ease-out;
 }
 
+#color-picker-popover input[type="color"] {
+  display: block;
+}
+
 #btn-emoji {
   background: transparent;
   border: none;
