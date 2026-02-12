@@ -378,11 +378,18 @@ async function updateWalletUI() {
     }
 }
 
+function getPhantomProvider() {
+    if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
+    if (window.solana?.isPhantom) return window.solana;
+    return null;
+}
+
 async function connectWallet(eager = false) {
-    if (window.solana && window.solana.isPhantom) {
+    const provider = getPhantomProvider();
+    if (provider) {
         try {
             // Eager connect if trusted, otherwise standard connect
-            const resp = await window.solana.connect(eager ? { onlyIfTrusted: true } : {});
+            const resp = await provider.connect(eager ? { onlyIfTrusted: true } : {});
             currentWalletAddress = resp.publicKey.toString();
             console.log('[WALLET] Connected:', currentWalletAddress);
 
@@ -394,9 +401,9 @@ async function connectWallet(eager = false) {
             renderRoomList();
 
             // Add listeners (only once)
-            window.solana.off('accountChanged');
-            window.solana.off('disconnect');
-            window.solana.on('accountChanged', (publicKey) => {
+            provider.off('accountChanged');
+            provider.off('disconnect');
+            provider.on('accountChanged', (publicKey) => {
                 if (publicKey) {
                     console.log('[WALLET] Account changed:', publicKey.toBase58());
                     currentWalletAddress = publicKey.toBase58();
@@ -411,7 +418,7 @@ async function connectWallet(eager = false) {
                     handleWalletDisconnect();
                 }
             });
-            window.solana.on('disconnect', handleWalletDisconnect);
+            provider.on('disconnect', handleWalletDisconnect);
 
             if (!eager) {
                 // If this was a manual click, we proceed to signing
@@ -447,7 +454,9 @@ async function signToAccess() {
     try {
         const msg = 'Sign in to tryl.chat';
         const encodedMsg = new TextEncoder().encode(msg);
-        const { signature } = await window.solana.signMessage(encodedMsg, 'utf8');
+        const provider = getPhantomProvider();
+        if (!provider) throw new Error('Phantom provider unavailable');
+        const { signature } = await provider.signMessage(encodedMsg, 'utf8');
         currentSignature = btoa(String.fromCharCode(...new Uint8Array(signature)));
         currentSignMsg = msg;
         console.log('[WALLET] Message signed successfully');
