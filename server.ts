@@ -104,11 +104,11 @@ export default class NekoChat implements Party.Server {
   }
 
   private async verifyTokenHolder(wallet: string): Promise<{ ok: boolean; detail: string }> {
-    // Try multiple RPC endpoints — Helius returns 401 from CF Workers
-    const HELIUS_API_KEY = (this.room.env.HELIUS_API_KEY as string) || "cc4ba0bb-9e76-44be-8681-511665f1c262";
+    // Try multiple RPC endpoints — API key only from env vars, never hardcoded
+    const HELIUS_API_KEY = this.room.env.HELIUS_API_KEY as string;
     const endpoints = [
       "https://api.mainnet-beta.solana.com",
-      `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+      ...(HELIUS_API_KEY ? [`https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`] : [])
     ];
 
     const body = JSON.stringify({
@@ -208,6 +208,18 @@ export default class NekoChat implements Party.Server {
     try {
       parsed = JSON.parse(message);
     } catch {
+      return;
+    }
+
+    if (parsed.type === "check-token") {
+      // Proxy token check: client sends wallet, server checks with private API key
+      const wallet = parsed.wallet || "";
+      if (!wallet) {
+        sender.send(JSON.stringify({ type: "token-result", hasToken: false }));
+        return;
+      }
+      const result = await this.verifyTokenHolder(wallet);
+      sender.send(JSON.stringify({ type: "token-result", hasToken: result.ok }));
       return;
     }
 

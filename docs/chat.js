@@ -8,8 +8,8 @@ const PARTYKIT_HOST = isLocal ? "localhost:1999" : "nekochat.frubcoin.partykit.d
 const WS_PROTOCOL = isLocal ? "ws" : "wss";
 
 // ═══ SOLANA / TOKEN GATING ═══
-const HELIUS_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=cc4ba0bb-9e76-44be-8681-511665f1c262";
 const TOKEN_MINT = "UwU8RVXB69Y6Dcju6cN2Qef6fykkq6UUNpB15rZku6Z";
+let tokenCheckResolve = null; // For server-proxied token check
 
 const ROOMS = [
     { id: 'main-lobby', name: 'lobby', icon: '✦', gated: false },
@@ -89,6 +89,15 @@ function connectWebSocket(roomId) {
                 break;
             case 'cursor-gone':
                 removeRemoteCursor(data.id);
+                break;
+            case 'token-result':
+                console.log('[TOKEN] Server result:', data.hasToken);
+                hasToken = !!data.hasToken;
+                if (tokenCheckResolve) {
+                    tokenCheckResolve(hasToken);
+                    tokenCheckResolve = null;
+                }
+                renderRoomList();
                 break;
             case 'join-error':
                 console.error('[JOIN-ERROR]', data.reason);
@@ -211,39 +220,28 @@ const COMMANDS = [
     '/unpin'
 ];
 
-// ═══ TOKEN CHECK ═══
+// ═══ TOKEN CHECK (server-proxied) ═══
 async function checkTokenBalance(walletAddress) {
     try {
-        console.log('[TOKEN] Checking balance for', walletAddress, 'mint:', TOKEN_MINT);
-        const response = await fetch(HELIUS_RPC_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getTokenAccountsByOwner',
-                params: [
-                    walletAddress,
-                    { mint: TOKEN_MINT },
-                    { encoding: 'jsonParsed' }
-                ]
-            })
-        });
-        const data = await response.json();
-        console.log('[TOKEN] RPC response:', JSON.stringify(data).substring(0, 500));
-        if (data.error) {
-            console.error('[TOKEN] RPC error:', data.error);
+        console.log('[TOKEN] Checking via server for', walletAddress);
+        if (!ws || ws.readyState !== WebSocket.OPEN) {
+            console.warn('[TOKEN] WebSocket not open, cannot check token');
             return false;
         }
-        if (data.result && data.result.value && data.result.value.length > 0) {
-            for (const account of data.result.value) {
-                const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
-                console.log('[TOKEN] Found account with amount:', amount);
-                if (amount > 0) return true;
-            }
-        }
-        console.log('[TOKEN] No token accounts found or all balances are 0');
-        return false;
+        // Send check-token request and wait for token-result response
+        const result = await new Promise((resolve) => {
+            tokenCheckResolve = resolve;
+            ws.send(JSON.stringify({ type: 'check-token', wallet: walletAddress }));
+            // Timeout after 10s
+            setTimeout(() => {
+                if (tokenCheckResolve) {
+                    tokenCheckResolve(false);
+                    tokenCheckResolve = null;
+                }
+            }, 10000);
+        });
+        console.log('[TOKEN] Server check result:', result);
+        return result;
     } catch (err) {
         console.error('[TOKEN] Check failed:', err);
         return false;
