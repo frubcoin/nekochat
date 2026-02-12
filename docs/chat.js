@@ -428,22 +428,41 @@ function setupEmojiPicker() {
     function showPicker() {
         if (!pickerInstance) {
             const Picker = window.EmojiPicker;
-            if (Picker) {
+            if (!Picker) {
+                console.error('EmojiPicker not loaded yet');
+                alert('Emoji library loading... please try again in a moment.');
+                return;
+            }
+
+            try {
                 pickerInstance = new Picker({
                     data: async () => {
-                        const response = await fetch(
-                            'https://cdn.jsdelivr.net/npm/@emoji-mart/data@latest/sets/14/native.json'
-                        )
-                        return response.json()
+                        try {
+                            const response = await fetch(
+                                'https://cdn.jsdelivr.net/npm/@emoji-mart/data@latest/sets/14/native.json'
+                            );
+                            if (!response.ok) throw new Error('Failed to load emoji data');
+                            return response.json();
+                        } catch (err) {
+                            console.error('Emoji data load failed:', err);
+                            alert('Could not load emojis. Check connection.');
+                            throw err;
+                        }
                     },
                     onEmojiSelect: (emoji) => {
                         insertEmoji(emoji.native);
+                        // Optional: close after select? No, let user pick multiple.
                     },
                     theme: 'dark',
                     previewPosition: 'none',
-                    skinTonePosition: 'none'
+                    skinTonePosition: 'none',
+                    navPosition: 'bottom',
+                    perLine: 8,
+                    maxFrequentRows: 1
                 });
                 container.appendChild(pickerInstance);
+            } catch (err) {
+                console.error('Error creating picker:', err);
             }
         }
         container.classList.remove('hidden');
