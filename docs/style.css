@@ -544,42 +544,45 @@ body {
   background: #FFD700;
   color: #000;
   font-size: 9px;
-  padding: 2px 4px;
-  border-radius: 4px;
+  padding: 3px 0;
+  border-radius: 20px;
   font-weight: 700;
   vertical-align: middle;
   letter-spacing: 0.5px;
-  min-width: 45px;
+  width: 58px;
   text-align: center;
   display: inline-block;
+  line-height: 1;
 }
 
 .admin-badge {
   background: #ff3333;
   color: #fff;
   font-size: 9px;
-  padding: 2px 4px;
-  border-radius: 4px;
+  padding: 3px 0;
+  border-radius: 20px;
   font-weight: 700;
   vertical-align: middle;
   letter-spacing: 0.5px;
-  min-width: 45px;
+  width: 58px;
   text-align: center;
   display: inline-block;
+  line-height: 1;
 }
 
 .mod-badge {
   background: #00cc66;
   color: #fff;
   font-size: 9px;
-  padding: 2px 4px;
-  border-radius: 4px;
+  padding: 3px 0;
+  border-radius: 20px;
   font-weight: 700;
   vertical-align: middle;
   letter-spacing: 0.5px;
-  min-width: 45px;
+  width: 58px;
   text-align: center;
   display: inline-block;
+  line-height: 1;
 }
 
 .chat-msg .msg-time {

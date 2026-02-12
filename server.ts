@@ -321,8 +321,6 @@ export default class NekoChat implements Party.Server {
         }
       }
 
-      console.log(`[JOIN] User: ${username}`);
-
       const color = (parsed.color && /^#[0-9A-F]{6}$/i.test(parsed.color))
         ? parsed.color
         : getRandomColor();
@@ -330,14 +328,9 @@ export default class NekoChat implements Party.Server {
       const allMods = await this.getStoredModWallets();
       const ownerWallet = this.getOwnerWallet();
 
-      console.log(`[JOIN] Wallet: ${wallet}, Owner: ${ownerWallet}`);
-      console.log(`[JOIN] Stored Mods: ${JSON.stringify(allMods)}`);
-
       const isAdmin = allAdmins.includes(wallet);
       const isMod = allMods.includes(wallet);
       const isOwner = wallet === ownerWallet;
-
-      console.log(`[JOIN] Flags -> Admin: ${isAdmin}, Mod: ${isMod}, Owner: ${isOwner}`);
 
       sender.setState({ username, color, wallet, isAdmin, isMod, isOwner });
 
