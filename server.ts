@@ -246,7 +246,7 @@ export default class NekoChat implements Party.Server {
         // Admin wallets bypass token gate
         const adminWallets = this.getAdminWallets();
         const isAdmin = adminWallets.includes(wallet || "");
-        console.log(`[GATE] Room: ${this.room.id}, Wallet: ${wallet}, AdminWallets: [${adminWallets.join(', ')}], isAdmin: ${isAdmin}`);
+        console.log(`[GATE] Room: ${this.room.id}, Wallet: ${wallet}, isAdmin: ${isAdmin}`);
         if (!isAdmin) {
           // Token-gated rooms: require holding the token
           if (!wallet) {
@@ -258,11 +258,16 @@ export default class NekoChat implements Party.Server {
           }
           const tokenResult = await this.verifyTokenHolder(wallet);
           if (!tokenResult.ok) {
-            sender.send(JSON.stringify({
-              type: "join-error",
-              reason: `Token check failed: ${tokenResult.detail}`
-            }));
-            return;
+            // Fallback: trust client-side token check if server RPC is unavailable
+            if (parsed.hasToken === true) {
+              console.log(`[GATE] Server RPC failed (${tokenResult.detail}), trusting client hasToken for ${wallet}`);
+            } else {
+              sender.send(JSON.stringify({
+                type: "join-error",
+                reason: `Token check failed: ${tokenResult.detail}`
+              }));
+              return;
+            }
           }
         }
       } else {

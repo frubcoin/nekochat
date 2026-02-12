@@ -43,9 +43,10 @@ function connectWebSocket(roomId) {
                 username: currentUsername,
                 wallet: currentWalletAddress,
                 signature: currentSignature,
-                signMessage: currentSignMsg
+                signMessage: currentSignMsg,
+                hasToken: hasToken
             };
-            console.log('[JOIN] Sending:', JSON.stringify(joinMsg).substring(0, 200));
+            console.log('[JOIN] Sending:', JSON.stringify(joinMsg).substring(0, 300));
             ws.send(JSON.stringify(joinMsg));
         }
     });
