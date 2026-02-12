@@ -33,6 +33,7 @@ function connectWebSocket(roomId) {
     if (!roomId) roomId = currentRoom;
     const url = getWsUrl(roomId);
     ws = new WebSocket(url);
+    const thisWs = ws; // Capture reference to detect stale handlers
 
     ws.addEventListener('open', () => {
         console.log(`connected to ${roomId}`);
@@ -150,6 +151,8 @@ function connectWebSocket(roomId) {
     });
 
     ws.addEventListener('close', () => {
+        // Ignore close events from stale WebSockets (e.g. old room after switching)
+        if (ws !== thisWs) return;
         if (!isSwitchingRoom) {
             appendSystemMessage({ text: 'connection lost — reconnecting...', timestamp: Date.now() });
         }
