@@ -148,6 +148,13 @@ function connectWebSocket(roomId) {
             case 'game-series-end':
                 if (currentUsername) showGameOverlay('series-end', data);
                 break;
+            case 'translation-result':
+                const resolve = pendingTranslations.get(data.originalText);
+                if (resolve) {
+                    resolve(data.translatedText);
+                    pendingTranslations.delete(data.originalText);
+                }
+                break;
         }
     });
 
@@ -212,6 +219,8 @@ try {
         userLanguage = savedLang;
     }
 } catch (e) { }
+
+const pendingTranslations = new Map();
 
 // let currentWalletAddress = null; // Moved up to state section
 
@@ -752,51 +761,32 @@ async function translateText(text, targetLang) {
         }
     }
 
-    // --- TIER 2: External LibreTranslate Mirrors ---
-    const mirrors = [
-        "https://translate.argosopentech.com/translate",
-        "https://libretranslate.de/translate",
-        "https://translate.terraprint.co/translate"
-    ];
+    // --- TIER 2: Server-Side Translation (Bypasses CORS) ---
+    return new Promise((resolve) => {
+        if (!ws || ws.readyState !== WebSocket.OPEN) return resolve(null);
 
-    for (const mirror of mirrors) {
-        try {
-            console.log(`[TRANSLATION] Attempting mirror ${mirror} for: "${text.substring(0, 20)}..."`);
-            const response = await fetch(mirror, {
-                method: "POST",
-                body: JSON.stringify({
-                    q: text,
-                    source: "auto",
-                    target: targetLang,
-                    format: "text",
-                    api_key: ""
-                }),
-                headers: { "Content-Type": "application/json" }
-            });
+        console.log(`[TRANSLATION] Requesting server-side translation for: "${text.substring(0, 20)}..."`);
 
-            if (!response.ok) {
-                console.warn(`[TRANSLATION] Mirror ${mirror} returned ${response.status}`);
-                continue;
+        // Timeout for server response
+        const timeout = setTimeout(() => {
+            if (pendingTranslations.has(text)) {
+                console.warn(`[TRANSLATION] Server timeout for: "${text.substring(0, 20)}..."`);
+                pendingTranslations.delete(text);
+                resolve(null);
             }
+        }, 5000);
 
-            const data = await response.json();
+        pendingTranslations.set(text, (result) => {
+            clearTimeout(timeout);
+            resolve(result);
+        });
 
-            // If detected language is already the target language, don't show translation
-            if (data.detectedLanguage && data.detectedLanguage.language === targetLang) {
-                console.log(`[TRANSLATION] Detected as native language (${targetLang}), skipping.`);
-                return null;
-            }
-
-            if (data.translatedText) {
-                console.log(`[TRANSLATION] Success via mirror: "${data.translatedText.substring(0, 20)}..."`);
-                return data.translatedText;
-            }
-        } catch (err) {
-            console.warn(`[TRANSLATION] Error with ${mirror}:`, err.message);
-        }
-    }
-
-    return null;
+        ws.send(JSON.stringify({
+            type: 'translate',
+            text: text,
+            targetLang: targetLang
+        }));
+    });
 }
 
 async function appendChatMessage(data, isHistory = false) {
