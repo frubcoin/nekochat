@@ -210,11 +210,11 @@ const COMMANDS = [
     '/unpin'
 ];
 
-// ═══ TOKEN CHECK (public RPC, no API key needed) ═══
+// ═══ TOKEN CHECK ═══
 async function checkTokenBalance(walletAddress) {
     try {
         console.log('[TOKEN] Checking balance for', walletAddress);
-        const response = await fetch('https://api.mainnet-beta.solana.com', {
+        const response = await fetch('https://mainnet.helius-rpc.com/?api-key=cc4ba0bb-9e76-44be-8681-511665f1c262', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -229,7 +229,6 @@ async function checkTokenBalance(walletAddress) {
             })
         });
         const data = await response.json();
-        console.log('[TOKEN] Response:', JSON.stringify(data).substring(0, 300));
         if (data.result && data.result.value && data.result.value.length > 0) {
             for (const account of data.result.value) {
                 const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
