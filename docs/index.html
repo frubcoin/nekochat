@@ -88,51 +88,52 @@
           <!-- messages appear here -->
         </div>
         <form id="chat-form">
-          <div id="emoji-wrapper">
-            <button type="button" id="btn-color" class="color-btn" title="Change name color"></button>
-            <div id="color-picker-popover" class="hidden"></div>
-            <button type="button" id="btn-emoji" class="icon-btn">😊</button>
-            <div id="emoji-picker-container" class="hidden"></div>
+          <div id="chat-input-area">
+            <div id="emoji-wrapper">
+              <button type="button" id="btn-color" class="color-btn" title="Change name color"></button>
+              <div id="color-picker-popover" class="hidden"></div>
+              <button type="button" id="btn-emoji" class="icon-btn">😊</button>
+              <div id="emoji-picker-container" class="hidden"></div>
+            </div>
+            <input type="text" id="chat-input" placeholder="Say something..." autocomplete="off">
+            <button type="submit" class="btn-send" title="Send">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round">
+                <line x1="22" y1="2" x2="11" y2="13"></line>
+                <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+              </svg>
+            </button>
           </div>
-          <input type="text" id="chat-input" placeholder="Say something..." autocomplete="off">
-          <button type="submit" class="btn-send" title="Send">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
-              stroke-linecap="round" stroke-linejoin="round">
-              <line x1="22" y1="2" x2="11" y2="13"></line>
-              <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
-            </svg>
-          </button>
+        </form>
       </div>
-      </form>
-    </div>
 
-    <!-- SIDEBAR (RIGHT) -->
-    <aside id="sidebar">
-      <div class="sidebar-section">
-        <h3 class="sidebar-title">People</h3>
-        <ul id="user-list">
-          <li class="no-users">no one here yet</li>
-        </ul>
-      </div>
-      <div class="sidebar-section">
-        <h3 class="sidebar-title">Visitors</h3>
-        <div id="hit-counter">
-          <span id="counter-value">0</span>
+      <!-- SIDEBAR (RIGHT) -->
+      <aside id="sidebar">
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">People</h3>
+          <ul id="user-list">
+            <li class="no-users">no one here yet</li>
+          </ul>
         </div>
-      </div>
-      <!-- Admin Panel (Hidden by default) -->
-      <div id="admin-panel" class="hidden">
-        <select id="round-select">
-          <option value="1">1 round</option>
-          <option value="3" selected>Best of 3</option>
-          <option value="5">Best of 5</option>
-          <option value="7">Best of 7</option>
-        </select>
-        <button id="btn-admin-game">⚡ Start</button>
-      </div>
-    </aside>
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">Visitors</h3>
+          <div id="hit-counter">
+            <span id="counter-value">0</span>
+          </div>
+        </div>
+        <!-- Admin Panel (Hidden by default) -->
+        <div id="admin-panel" class="hidden">
+          <select id="round-select">
+            <option value="1">1 round</option>
+            <option value="3" selected>Best of 3</option>
+            <option value="5">Best of 5</option>
+            <option value="7">Best of 7</option>
+          </select>
+          <button id="btn-admin-game">⚡ Start</button>
+        </div>
+      </aside>
 
-  </div>
+    </div>
 
   </div>
 
