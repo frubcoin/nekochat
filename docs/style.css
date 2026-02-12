@@ -680,16 +680,13 @@ body {
   width: 42px;
   height: 42px;
   padding: 0;
-  transition: transform 0.2s;
   flex-shrink: 0;
-  /* Removed filter: invert(1) */
+
 }
 
 .btn-send:hover {
-
   opacity: 1;
   background: #1d1d1d;
-  box-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
 }
 
 /* ═══ EMOJI PICKER & COLOR PICKER ═══ */
@@ -780,13 +777,6 @@ body {
   }
 }
 
-.btn-send:hover {
-
-  transform: translateY(-1px);
-  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.2);
-}
-
-.btn-send:active {}
 
 /* ═══ ROOMS SIDEBAR (LEFT) ═══ */
 #rooms-sidebar {
