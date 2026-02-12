@@ -13,7 +13,7 @@ const TOKEN_MINT = "UwU8RVXB69Y6Dcju6cN2Qef6fykkq6UUNpB15rZku6Z";
 
 const ROOMS = [
     { id: 'main-lobby', name: 'lobby', icon: '✦', gated: false },
-    { id: 'holders-lounge', name: 'holders', icon: '◆', gated: true },
+    { id: 'holders-lounge', name: '$UwU', icon: '◆', gated: true },
 ];
 
 let currentRoom = 'main-lobby';
