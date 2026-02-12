@@ -904,6 +904,17 @@ export default class NekoChat implements Party.Server {
         });
       }
     }
+    // Sort users: Owner > Admin > Mod > User
+    users.sort((a, b) => {
+      const getScore = (u: any) => {
+        if (u.isOwner) return 4;
+        if (u.isAdmin) return 3;
+        if (u.isMod) return 2;
+        return 1;
+      };
+      return getScore(b) - getScore(a);
+    });
+
     this.room.broadcast(JSON.stringify({ type: "user-list", users, total: totalConnections }));
   }
 
