@@ -995,34 +995,33 @@ document.addEventListener('click', () => {
     document.body.classList.remove('mobile-menu-active', 'mobile-users-active');
 });
 
-// ═══ SWIPE GESTURES ═══
-let touchstartX = 0;
-let touchendX = 0;
-
-document.addEventListener('touchstart', (e) => {
-    touchstartX = e.changedTouches[0].screenX;
-}, false);
-
-document.addEventListener('touchend', (e) => {
-    touchendX = e.changedTouches[0].screenX;
-    handleSwipe();
-}, false);
-
-function handleSwipe() {
-    const threshold = 50;
-    const diff = touchendX - touchstartX;
-
-    // Swipe Right (Open Rooms)
-    if (diff > threshold) {
-        document.body.classList.add('mobile-menu-active');
-        document.body.classList.remove('mobile-users-active');
+// ═══ SWIPE GESTURES (ZingTouch) ═══
+function setupGestures() {
+    if (typeof ZingTouch === 'undefined') {
+        console.warn('ZingTouch not loaded yet, retrying...');
+        setTimeout(setupGestures, 500);
+        return;
     }
-    // Swipe Left (Open Users)
-    else if (diff < -threshold) {
-        document.body.classList.add('mobile-users-active');
-        document.body.classList.remove('mobile-menu-active');
-    }
+
+    const region = new ZingTouch.Region(document.body);
+    region.bind(document.body, 'swipe', (e) => {
+        const data = e.detail.data[0];
+        const angle = data.currentDirection; // 0 to 360
+
+        // Swipe Right (Open Rooms) - Angle near 0 or 360
+        if (angle >= 315 || angle <= 45) {
+            document.body.classList.add('mobile-menu-active');
+            document.body.classList.remove('mobile-users-active');
+        }
+        // Swipe Left (Open Users) - Angle near 180
+        else if (angle >= 135 && angle <= 225) {
+            document.body.classList.add('mobile-users-active');
+            document.body.classList.remove('mobile-menu-active');
+        }
+    });
 }
+
+setupGestures();
 
 // Start connection after DOM and listeners are ready
 connectWebSocket('main-lobby');
