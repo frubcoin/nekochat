@@ -181,7 +181,8 @@ const DOM = {
     stepWallet: document.getElementById('step-wallet'),
     btnPhantom: document.getElementById('btn-phantom'),
     btnBack: document.getElementById('btn-back-wallet'),
-    colorPicker: document.getElementById('color-picker'),
+    btnColor: document.getElementById('btn-color'),
+    colorPopover: document.getElementById('color-picker-popover'),
     btnAdminGame: document.getElementById('btn-admin-game'),
     adminPanel: document.getElementById('admin-panel'),
     roundSelect: document.getElementById('round-select'),
@@ -392,14 +393,70 @@ DOM.loginForm.addEventListener('submit', (e) => {
 });
 
 // ═══ COLOR PICKER ═══
-DOM.colorPicker.addEventListener('change', (e) => {
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-            type: 'update-color',
-            color: e.target.value
-        }));
+let colorPickerInstance = null;
+const userColor = localStorage.getItem('chat_color') || '#ffffff'; // Default or stored
+
+// Set initial button color
+if (DOM.btnColor) {
+    DOM.btnColor.style.backgroundColor = userColor;
+}
+
+function setupColorPicker() {
+    const btnColor = DOM.btnColor;
+    const popover = DOM.colorPopover;
+
+    if (!btnColor || !popover) return;
+
+    btnColor.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (popover.classList.contains('hidden')) {
+            showColorPicker();
+        } else {
+            hideColorPicker();
+        }
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!popover.classList.contains('hidden') &&
+            !popover.contains(e.target) &&
+            e.target !== btnColor) {
+            hideColorPicker();
+        }
+    });
+
+    function showColorPicker() {
+        if (!colorPickerInstance && window.iro) {
+            colorPickerInstance = new iro.ColorPicker(popover, {
+                width: 150,
+                color: userColor,
+                layout: [
+                    { component: iro.ui.Wheel, options: {} },
+                ]
+            });
+
+            colorPickerInstance.on('color:change', function (color) {
+                const newColor = color.hexString;
+                btnColor.style.backgroundColor = newColor;
+                localStorage.setItem('chat_color', newColor);
+
+                // Send update to server
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({
+                        type: 'update-color',
+                        color: newColor
+                    }));
+                }
+            });
+        }
+        popover.classList.remove('hidden');
     }
-});
+
+    function hideColorPicker() {
+        popover.classList.add('hidden');
+    }
+}
+
+setupColorPicker();
 
 // ═══ EMOJI PICKER ═══
 let pickerInstance = null;
