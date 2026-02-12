@@ -124,22 +124,22 @@ export default class NekoChat implements Party.Server {
 
     for (const rpc of endpoints) {
       try {
-        console.log(`[TOKEN CHECK] Trying ${rpc.substring(0, 50)}... Wallet: ${wallet}`);
+        // console.log(`[TOKEN CHECK] Trying ${rpc.substring(0, 50)}... Wallet: ${wallet}`);
         const response = await fetch(rpc, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body
         });
         if (!response.ok) {
-          console.warn(`[TOKEN CHECK] ${rpc.substring(0, 50)} returned HTTP ${response.status}`);
+          // console.warn(`[TOKEN CHECK] ${rpc.substring(0, 50)} returned HTTP ${response.status}`);
           continue; // Try next endpoint
         }
         const data: any = await response.json();
         if (data.error) {
-          console.warn(`[TOKEN CHECK] RPC error from ${rpc.substring(0, 50)}:`, data.error);
+          // console.warn(`[TOKEN CHECK] RPC error from ${rpc.substring(0, 50)}:`, data.error);
           continue;
         }
-        console.log(`[TOKEN CHECK] Response:`, JSON.stringify(data).substring(0, 300));
+        // console.log(`[TOKEN CHECK] Response:`, JSON.stringify(data).substring(0, 300));
         if (data.result?.value?.length > 0) {
           for (const account of data.result.value) {
             const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
@@ -230,13 +230,13 @@ export default class NekoChat implements Party.Server {
           if (!isValid) {
             console.warn(`[SIG] Invalid signature from ${wallet} (${username})`);
           } else {
-            console.log(`[SIG] Verified wallet ${wallet} for ${username}`);
+            // console.log(`[SIG] Verified wallet ${wallet} for ${username}`);
           }
         } catch (err) {
           console.warn("[SIG] Verification error:", err);
         }
       } else {
-        console.warn(`[SIG] No signature provided by ${wallet} (${username})`);
+        // console.warn(`[SIG] No signature provided by ${wallet} (${username})`);
       }
 
       // Access control: gated rooms use token ownership, others use whitelist
@@ -246,7 +246,7 @@ export default class NekoChat implements Party.Server {
         // Admin wallets bypass token gate
         const adminWallets = this.getAdminWallets();
         const isAdmin = adminWallets.includes(wallet || "");
-        console.log(`[GATE] Room: ${this.room.id}, Wallet: ${wallet}, isAdmin: ${isAdmin}`);
+        // console.log(`[GATE] Room: ${this.room.id}, Wallet: ${wallet}, isAdmin: ${isAdmin}`);
         if (!isAdmin) {
           // Token-gated rooms: require holding the token
           if (!wallet) {
@@ -260,7 +260,7 @@ export default class NekoChat implements Party.Server {
           if (!tokenResult.ok) {
             // Fallback: trust client-side token check if server RPC is unavailable
             if (parsed.hasToken === true) {
-              console.log(`[GATE] Server RPC failed (${tokenResult.detail}), trusting client hasToken for ${wallet}`);
+              // console.log(`[GATE] Server RPC failed (${tokenResult.detail}), trusting client hasToken for ${wallet}`);
             } else {
               sender.send(JSON.stringify({
                 type: "join-error",
