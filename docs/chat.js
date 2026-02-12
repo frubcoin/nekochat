@@ -38,13 +38,15 @@ function connectWebSocket(roomId) {
         console.log(`connected to ${roomId}`);
         isSwitchingRoom = false;
         if (currentUsername) {
-            ws.send(JSON.stringify({
+            const joinMsg = {
                 type: 'join',
                 username: currentUsername,
                 wallet: currentWalletAddress,
                 signature: currentSignature,
                 signMessage: currentSignMsg
-            }));
+            };
+            console.log('[JOIN] Sending:', JSON.stringify(joinMsg).substring(0, 200));
+            ws.send(JSON.stringify(joinMsg));
         }
     });
 
