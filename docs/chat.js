@@ -612,6 +612,14 @@ function formatTime(ts) {
 }
 
 function appendChatMessage(data) {
+    if (data.isOwner || data.isMod || data.isAdmin) {
+        console.log('[CHAT-RENDER] Badge Data:', {
+            user: data.username,
+            isOwner: data.isOwner,
+            isMod: data.isMod,
+            isAdmin: data.isAdmin
+        });
+    }
     const div = document.createElement('div');
     div.className = 'chat-msg';
 
