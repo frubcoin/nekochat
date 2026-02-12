@@ -631,8 +631,8 @@ body {
   align-items: center;
   background: var(--bg-surface);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: 8px 16px;
+  border-radius: 28px;
+  padding: 4px 4px 4px 16px;
   box-shadow: var(--shadow);
   /* Removed width: 100%/max-width: 100% to prevent sidebar squash. 
      The parent #chat-form needs to handle the width or we use flex. */
@@ -691,8 +691,8 @@ body {
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   padding: 0;
   flex-shrink: 0;
 
@@ -854,7 +854,7 @@ body {
   }
 
   #chat-input-area {
-    padding: 12px;
+    padding: 4px 4px 4px 12px;
   }
 
   .chat-msg .msg-text {
