@@ -92,8 +92,18 @@ export default class NekoChat implements Party.Server {
     return (await this.room.storage.get<string[]>("storedMemberWallets")) || [];
   }
 
+  private async getStoredAdminWallets(): Promise<string[]> {
+    return (await this.room.storage.get<string[]>("storedAdminWallets")) || [];
+  }
+
+  private async getAllAdminWallets(): Promise<string[]> {
+    const envAdmins = this.getAdminWallets();
+    const storedAdmins = await this.getStoredAdminWallets();
+    return Array.from(new Set([...envAdmins, ...storedAdmins]));
+  }
+
   private async isWhitelisted(wallet: string): Promise<boolean> {
-    const admins = this.getAdminWallets();
+    const admins = await this.getAllAdminWallets();
     const envMembers = this.getMemberWallets();
     const storedMembers = await this.getStoredMemberWallets();
     return (
@@ -308,7 +318,8 @@ export default class NekoChat implements Party.Server {
       const color = (parsed.color && /^#[0-9A-F]{6}$/i.test(parsed.color))
         ? parsed.color
         : getRandomColor();
-      const isAdmin = this.getAdminWallets().includes(wallet);
+      const allAdmins = await this.getAllAdminWallets();
+      const isAdmin = allAdmins.includes(wallet);
       sender.setState({ username, color, wallet, isAdmin });
 
       if (isAdmin) {
@@ -497,13 +508,30 @@ export default class NekoChat implements Party.Server {
         const subCommand = parts[1]; // for /whitelist subcommands
         const val = parts.slice(2).join(" ");
         const fullArg = parts.slice(1).join(" "); // for /pin etc
+        if (command === "/admin") {
+          const storedAdmins = await this.getStoredAdminWallets();
+
+          if (subCommand === "add") {
+            const target = parts[2] || "";
+            const cleanTarget = target.trim();
+
+            if (cleanTarget && !storedAdmins.includes(cleanTarget)) {
+              storedAdmins.push(cleanTarget);
+              await this.room.storage.put("storedAdminWallets", storedAdmins);
+              sender.send(JSON.stringify({ type: "system-message", text: `✅ Added ADMIN: ${cleanTarget}` }));
+            } else {
+              sender.send(JSON.stringify({ type: "system-message", text: `⚠️ Invalid or already admin: ${cleanTarget}` }));
+            }
+          }
+          return;
+        }
 
         if (command === "/whitelist" || command === "/aa") {
           let stored = await this.getStoredMemberWallets();
 
-          // Special handler for /aa <wallet> shortcut
+          // 1. /aa <wallet> shortcut
           if (command === "/aa") {
-            const target = parts[1] || ""; // /aa <wallet>
+            const target = parts[1] || "";
             const cleanTarget = target.trim();
             if (cleanTarget && !stored.includes(cleanTarget)) {
               stored.push(cleanTarget);
@@ -514,38 +542,50 @@ export default class NekoChat implements Party.Server {
             }
             return;
           }
+
+          // 2. /whitelist bulk <csv>
+          if (subCommand === "bulk") {
+            const addrs = val.split(",").map((a: string) => a.trim()).filter(Boolean);
+            let count = 0;
+            addrs.forEach((a: string) => {
+              if (!stored.includes(a)) {
+                stored.push(a);
+                count++;
+              }
+            });
+            await this.room.storage.put("storedMemberWallets", stored);
+            sender.send(JSON.stringify({ type: "system-message", text: `✅ Bulk added ${count} addresses.` }));
+            return;
+          }
+
+          // 3. /whitelist remove <wallet>
+          if (subCommand === "remove") {
+            stored = stored.filter((a: string) => a !== val);
+            await this.room.storage.put("storedMemberWallets", stored);
+            sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed ${val} from whitelist.` }));
+            return;
+          }
+
+          // 4. Default: /whitelist <wallet> (or add)
           let target = val;
           // Handle "room 1 <wallet>" pattern or similar
           if (target.toLowerCase().startsWith("room ")) {
             const parts = target.split(" ");
             if (parts.length >= 3) {
-              // "room", "1", "<wallet>" -> take the last part
               target = parts[parts.length - 1];
             }
           }
 
-          if (!stored.includes(target)) {
-            stored.push(target);
+          const cleanTarget = target.trim();
+          if (cleanTarget && !stored.includes(cleanTarget)) {
+            stored.push(cleanTarget);
             await this.room.storage.put("storedMemberWallets", stored);
-            sender.send(JSON.stringify({ type: "system-message", text: `✅ Added ${target} to whitelist.` }));
+            sender.send(JSON.stringify({ type: "system-message", text: `✅ Added ${cleanTarget} to whitelist.` }));
+          } else if (cleanTarget) {
+            sender.send(JSON.stringify({ type: "system-message", text: `⚠️ ${cleanTarget} is already whitelisted.` }));
           }
-        } else if (subCommand === "bulk") {
-          const addrs = val.split(",").map((a: string) => a.trim()).filter(Boolean);
-          let count = 0;
-          addrs.forEach((a: string) => {
-            if (!stored.includes(a)) {
-              stored.push(a);
-              count++;
-            }
-          });
-          await this.room.storage.put("storedMemberWallets", stored);
-          sender.send(JSON.stringify({ type: "system-message", text: `✅ Bulk added ${count} addresses.` }));
-        } else if (subCommand === "remove") {
-          stored = stored.filter((a: string) => a !== val);
-          await this.room.storage.put("storedMemberWallets", stored);
-          sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed ${val} from whitelist.` }));
+          return;
         }
-        return;
       }
 
       if (command === "/mute") {
