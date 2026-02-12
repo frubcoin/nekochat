@@ -104,45 +104,56 @@ export default class NekoChat implements Party.Server {
   }
 
   private async verifyTokenHolder(wallet: string): Promise<{ ok: boolean; detail: string }> {
+    // Try multiple RPC endpoints — Helius returns 401 from CF Workers
     const HELIUS_API_KEY = (this.room.env.HELIUS_API_KEY as string) || "cc4ba0bb-9e76-44be-8681-511665f1c262";
-    const HELIUS_RPC = `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`;
-    try {
-      console.log(`[TOKEN CHECK] Wallet: ${wallet}, Mint: ${TOKEN_MINT}`);
-      const response = await fetch(HELIUS_RPC, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "getTokenAccountsByOwner",
-          params: [
-            wallet,
-            { mint: TOKEN_MINT },
-            { encoding: "jsonParsed" }
-          ]
-        })
-      });
-      if (!response.ok) {
-        return { ok: false, detail: `HTTP ${response.status}: ${response.statusText}` };
-      }
-      const data: any = await response.json();
-      console.log(`[TOKEN CHECK] Response:`, JSON.stringify(data).substring(0, 500));
-      if (data.error) {
-        return { ok: false, detail: `RPC error: ${JSON.stringify(data.error)}` };
-      }
-      if (data.result?.value?.length > 0) {
-        for (const account of data.result.value) {
-          const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
-          console.log(`[TOKEN CHECK] Found account with amount: ${amount}`);
-          if (amount > 0) return { ok: true, detail: `Balance: ${amount}` };
+    const endpoints = [
+      "https://api.mainnet-beta.solana.com",
+      `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+    ];
+
+    const body = JSON.stringify({
+      jsonrpc: "2.0",
+      id: 1,
+      method: "getTokenAccountsByOwner",
+      params: [
+        wallet,
+        { mint: TOKEN_MINT },
+        { encoding: "jsonParsed" }
+      ]
+    });
+
+    for (const rpc of endpoints) {
+      try {
+        console.log(`[TOKEN CHECK] Trying ${rpc.substring(0, 50)}... Wallet: ${wallet}`);
+        const response = await fetch(rpc, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body
+        });
+        if (!response.ok) {
+          console.warn(`[TOKEN CHECK] ${rpc.substring(0, 50)} returned HTTP ${response.status}`);
+          continue; // Try next endpoint
         }
-        return { ok: false, detail: `Found ${data.result.value.length} account(s) but all balances are 0` };
+        const data: any = await response.json();
+        if (data.error) {
+          console.warn(`[TOKEN CHECK] RPC error from ${rpc.substring(0, 50)}:`, data.error);
+          continue;
+        }
+        console.log(`[TOKEN CHECK] Response:`, JSON.stringify(data).substring(0, 300));
+        if (data.result?.value?.length > 0) {
+          for (const account of data.result.value) {
+            const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
+            if (amount > 0) return { ok: true, detail: `Balance: ${amount}` };
+          }
+          return { ok: false, detail: `Found ${data.result.value.length} account(s) but all balances are 0` };
+        }
+        return { ok: false, detail: `No token accounts found for mint ${TOKEN_MINT}` };
+      } catch (err: any) {
+        console.warn(`[TOKEN CHECK] Exception from ${rpc.substring(0, 50)}:`, err?.message);
+        continue;
       }
-      return { ok: false, detail: `No token accounts found for mint ${TOKEN_MINT}` };
-    } catch (err: any) {
-      console.error("[TOKEN CHECK] Exception:", err);
-      return { ok: false, detail: `Exception: ${err?.message || String(err)}` };
     }
+    return { ok: false, detail: "All RPC endpoints failed" };
   }
   // Track message timestamps for rate limiting
   rateLimits = new Map<string, number[]>();
