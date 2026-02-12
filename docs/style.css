@@ -578,10 +578,11 @@ body {
   border-radius: var(--radius);
   padding: 8px 16px;
   box-shadow: var(--shadow);
-  width: 100%;
-  /* Wider input area */
-  max-width: 100%;
-  /* Allow full width */
+  /* Removed width: 100%/max-width: 100% to prevent sidebar squash. 
+     The parent #chat-form needs to handle the width or we use flex. */
+  flex: 1;
+  min-width: 0;
+  /* Allow shrinking */
   margin: 0 auto;
 }
 
