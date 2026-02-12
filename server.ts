@@ -126,6 +126,35 @@ export default class NekoChat implements Party.Server {
     this.room.broadcast(JSON.stringify({ type: "typing-users", users: typingUsers }));
   }
 
+  private async translateServerSide(text: string, targetLang: string): Promise<string | null> {
+    const safeTarget = (targetLang || "en").toLowerCase();
+    if (!/^[a-z]{2}(?:-[a-z]{2})?$/i.test(safeTarget)) return null;
+    if (!text || text.length > 1000) return null;
+
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(safeTarget)}&dt=t&q=${encodeURIComponent(text)}`;
+
+    try {
+      const res = await fetch(url, {
+        headers: { "Accept": "application/json" }
+      });
+      if (!res.ok) return null;
+
+      const data = await res.json() as any;
+      if (!Array.isArray(data) || !Array.isArray(data[0])) return null;
+
+      const translated = data[0]
+        .filter((chunk: any) => Array.isArray(chunk) && typeof chunk[0] === "string")
+        .map((chunk: any) => chunk[0])
+        .join("")
+        .trim();
+
+      return translated || null;
+    } catch (err) {
+      console.warn("[TRANSLATE] Server-side translation failed:", err);
+      return null;
+    }
+  }
+
   private async getAllAdminWallets(): Promise<string[]> {
     const envAdmins = this.getAdminWallets();
     const storedAdmins = await this.getStoredAdminWallets();
@@ -540,6 +569,33 @@ export default class NekoChat implements Party.Server {
       if (!state?.username) return;
       sender.setState({ ...state, isTyping: !!parsed.isTyping });
       await this.broadcastTypingUsers();
+      return;
+    }
+
+    if (parsed.type === "translate") {
+      const state = sender.state as any;
+      if (!state?.username) return;
+
+      const originalText = typeof parsed.text === "string" ? parsed.text : "";
+      const targetLang = typeof parsed.targetLang === "string" ? parsed.targetLang : "en";
+
+      if (!originalText) {
+        sender.send(JSON.stringify({
+          type: "translation-result",
+          originalText,
+          translatedText: null,
+        }));
+        return;
+      }
+
+      const translatedText = await this.translateServerSide(originalText, targetLang);
+      sender.send(JSON.stringify({
+        type: "translation-result",
+        originalText,
+        translatedText: translatedText && translatedText.toLowerCase() !== originalText.toLowerCase()
+          ? translatedText
+          : null,
+      }));
       return;
     }
 
