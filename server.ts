@@ -105,9 +105,13 @@ export default class NekoChat implements Party.Server {
 
 
 
-  // Token check cache: Map<wallet, { result: boolean, timestamp: number }>
-  tokenCache = new Map<string, { ok: boolean; timestamp: number }>();
-  CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+  // Token check cache
+  tokenCache: Map<string, { ok: boolean; timestamp: number }>;
+  readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+  constructor(readonly room: Room) {
+    this.tokenCache = new Map();
+  }
 
   private async verifyTokenHolder(wallet: string): Promise<{ ok: boolean; detail: string }> {
     // 1. Check Cache
@@ -187,7 +191,7 @@ export default class NekoChat implements Party.Server {
   mutedUsers = new Set<string>(); // usernames
   pinnedMessage: string | null = null;
 
-  constructor(readonly room: Party.Room) { }
+
 
   async onStart() {
     // Initialize pinned message

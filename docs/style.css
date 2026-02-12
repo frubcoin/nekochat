@@ -626,21 +626,27 @@ body {
   color: var(--text-muted);
 }
 
-.btn-send {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+display: flex;
+align-items: center;
+justify-content: center;
+background: transparent;
+color: #fff;
+border: none;
+border-radius: 8px;
+cursor: pointer;
+width: 40px;
+/* Fixed width for icon */
+height: 42px;
+padding: 0;
+transition: opacity 0.2s;
+flex-shrink: 0;
+}
+
+.btn-send:hover {
+  opacity: 0.8;
+  transform: none;
   background: transparent;
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-  width: 40px;
-  /* Fixed width for icon */
-  height: 42px;
-  padding: 0;
-  transition: all 0.2s;
-  flex-shrink: 0;
+  box-shadow: none;
 }
 
 /* ═══ EMOJI PICKER & COLOR PICKER ═══ */
