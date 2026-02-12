@@ -331,6 +331,7 @@ export default class NekoChat implements Party.Server {
       const ownerWallet = this.getOwnerWallet();
 
       console.log(`[JOIN] Wallet: ${wallet}, Owner: ${ownerWallet}`);
+      console.log(`[JOIN] Stored Mods: ${JSON.stringify(allMods)}`);
 
       const isAdmin = allAdmins.includes(wallet);
       const isMod = allMods.includes(wallet);
