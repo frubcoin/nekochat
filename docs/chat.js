@@ -1098,26 +1098,40 @@ function formatTime(ts) {
 
 async function getGoogleAiLanguageDetector() {
     if (!window.ai?.languageDetector?.capabilities || !window.ai?.languageDetector?.create) {
+        updateAIStatus('unavailable');
         return null;
     }
 
     const capabilities = await window.ai.languageDetector.capabilities();
-    if (!capabilities || capabilities.available === 'no') return null;
+    if (!capabilities || capabilities.available === 'no') {
+        updateAIStatus('unavailable');
+        return null;
+    }
 
     let detector;
-    if (capabilities.available === 'readily') {
-        detector = await window.ai.languageDetector.create();
-    } else {
-        // Model needs to be downloaded
-        console.log('[AI] Downloading language detection model...');
-        detector = await window.ai.languageDetector.create({
-            monitor(m) {
-                m.addEventListener('downloadprogress', (e) => {
-                    console.log(`[AI] Language Model Download: ${Math.round((e.loaded / e.total) * 100)}%`);
-                });
-            },
-        });
-        console.log('[AI] Language detection model ready.');
+    try {
+        if (capabilities.available === 'readily') {
+            detector = await window.ai.languageDetector.create();
+        } else {
+            // Model needs to be downloaded
+            updateAIStatus('downloading', 'Language Model');
+            console.log('[AI] Downloading language detection model...');
+            detector = await window.ai.languageDetector.create({
+                monitor(m) {
+                    m.addEventListener('downloadprogress', (e) => {
+                        const percent = Math.round((e.loaded / e.total) * 100);
+                        console.log(`[AI] Language Model Download: ${percent}%`);
+                        updateAIStatus('downloading', `Language Model ${percent}%`);
+                    });
+                },
+            });
+            console.log('[AI] Language detection model ready.');
+        }
+        updateAIStatus('ready');
+    } catch (e) {
+        console.error('[AI] Failed to create language detector:', e);
+        updateAIStatus('unavailable');
+        return null;
     }
 
     return detector;
@@ -1126,6 +1140,8 @@ async function getGoogleAiLanguageDetector() {
 async function getGoogleAiTranslator(sourceLang, targetLang) {
     if (!sourceLang || !targetLang || sourceLang === targetLang) return null;
     if (!window.ai?.translator?.capabilities || !window.ai?.translator?.create) {
+        // Optional: only show unavailable if we really want to push it
+        // updateAIStatus('unavailable'); 
         return null;
     }
 
@@ -1134,7 +1150,9 @@ async function getGoogleAiTranslator(sourceLang, targetLang) {
         targetLanguage: targetLang
     });
 
-    if (!capabilities || capabilities.available === 'no') return null;
+    if (!capabilities || capabilities.available === 'no') {
+        return null;
+    }
 
     let translator;
     if (capabilities.available === 'readily') {
@@ -1145,6 +1163,7 @@ async function getGoogleAiTranslator(sourceLang, targetLang) {
     } else {
         // Model needs to be downloaded
         console.log(`[AI] Downloading translation model for ${sourceLang} -> ${targetLang}...`);
+        updateAIStatus('downloading', `Translation Model`);
 
         // Notify user via system message if it's taking time
         appendSystemMessage({
@@ -1158,10 +1177,12 @@ async function getGoogleAiTranslator(sourceLang, targetLang) {
                 m.addEventListener('downloadprogress', (e) => {
                     const percent = Math.round((e.loaded / e.total) * 100);
                     console.log(`[AI] Translation Model Download: ${percent}%`);
+                    updateAIStatus('downloading', `Translation Model ${percent}%`);
                 });
             },
         });
         console.log('[AI] Translation model ready.');
+        updateAIStatus('ready');
     }
 
     return translator;
