@@ -306,7 +306,9 @@ export default class NekoChat implements Party.Server {
 
       console.log(`[JOIN] User: ${username}`);
 
-      const color = getRandomColor();
+      const color = (parsed.color && /^#[0-9A-F]{6}$/i.test(parsed.color))
+        ? parsed.color
+        : getRandomColor();
       const isAdmin = this.getAdminWallets().includes(wallet);
       sender.setState({ username, color, wallet, isAdmin });
 
