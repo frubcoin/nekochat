@@ -1012,5 +1012,34 @@ document.addEventListener('click', () => {
     document.body.classList.remove('mobile-menu-active', 'mobile-users-active');
 });
 
+// ═══ SWIPE GESTURES ═══
+let touchstartX = 0;
+let touchendX = 0;
+
+document.addEventListener('touchstart', (e) => {
+    touchstartX = e.changedTouches[0].screenX;
+}, false);
+
+document.addEventListener('touchend', (e) => {
+    touchendX = e.changedTouches[0].screenX;
+    handleSwipe();
+}, false);
+
+function handleSwipe() {
+    const threshold = 50;
+    const diff = touchendX - touchstartX;
+
+    // Swipe Right (Open Rooms)
+    if (diff > threshold) {
+        document.body.classList.add('mobile-menu-active');
+        document.body.classList.remove('mobile-users-active');
+    }
+    // Swipe Left (Open Users)
+    else if (diff < -threshold) {
+        document.body.classList.add('mobile-users-active');
+        document.body.classList.remove('mobile-menu-active');
+    }
+}
+
 // Start connection after DOM and listeners are ready
 connectWebSocket('main-lobby');
