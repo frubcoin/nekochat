@@ -298,6 +298,9 @@ function switchRoom(roomId) {
     // Clear pinned banner — new room will send its own
     DOM.pinnedBanner.classList.add('hidden');
 
+    // Clear remote cursors
+    Object.keys(remoteCursors).forEach(id => removeRemoteCursor(id));
+
     // Clear reconnect timer
     if (reconnectTimer) {
         clearTimeout(reconnectTimer);
