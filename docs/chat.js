@@ -523,9 +523,9 @@ function createFallbackColorPicker() {
     console.log('Creating fallback color picker');
     const popover = document.getElementById('color-picker-popover');
     if (!popover) return;
-    
+
     popover.innerHTML = '';
-    
+
     const colorInput = document.createElement('input');
     colorInput.type = 'color';
     colorInput.value = userColor;
@@ -534,20 +534,20 @@ function createFallbackColorPicker() {
     colorInput.style.border = 'none';
     colorInput.style.borderRadius = '8px';
     colorInput.style.cursor = 'pointer';
-    
+
     colorInput.addEventListener('change', (e) => {
         const newColor = e.target.value;
         userColor = newColor;
         const btnColor = document.getElementById('btn-color');
         if (btnColor) btnColor.style.backgroundColor = newColor;
-        
+
         try {
             localStorage.setItem('chat_color', newColor);
             if (currentWalletAddress) {
                 localStorage.setItem(`chat_color_${currentWalletAddress}`, newColor);
             }
         } catch (e) { /* ignore */ }
-        
+
         if (ws && ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({
                 type: 'update-color',
@@ -555,7 +555,7 @@ function createFallbackColorPicker() {
             }));
         }
     });
-    
+
     popover.appendChild(colorInput);
     popover.classList.remove('hidden');
 }
@@ -612,16 +612,16 @@ function setupColorPicker() {
 
     newBtnColor.addEventListener('click', (e) => {
         console.log('Color button clicked');
-        
+
         if (isHandlingClick) {
             console.log('Already handling click, ignoring');
             return;
         }
-        
+
         isHandlingClick = true;
         e.preventDefault();
         e.stopPropagation();
-        
+
         if (popover.classList.contains('hidden')) {
             console.log('Showing color picker');
             showColorPicker();
@@ -629,7 +629,7 @@ function setupColorPicker() {
             console.log('Hiding color picker');
             hideColorPicker();
         }
-        
+
         // Reset flag after a short delay
         setTimeout(() => {
             isHandlingClick = false;
@@ -642,12 +642,12 @@ function setupColorPicker() {
         if (!popover.classList.contains('hidden') &&
             !popover.contains(e.target) &&
             e.target !== newBtnColor) {
-            
+
             // Clear any existing timeout
             if (outsideClickTimeout) {
                 clearTimeout(outsideClickTimeout);
             }
-            
+
             // Delay hiding to prevent immediate hide after show
             outsideClickTimeout = setTimeout(() => {
                 if (!popover.classList.contains('hidden')) {
@@ -805,16 +805,16 @@ function setupEmojiPicker() {
 
     newBtnEmoji.addEventListener('click', (e) => {
         console.log('Emoji button clicked');
-        
+
         if (isHandlingClick) {
             console.log('Already handling emoji click, ignoring');
             return;
         }
-        
+
         isHandlingClick = true;
         e.preventDefault();
         e.stopPropagation();
-        
+
         if (container.classList.contains('hidden')) {
             console.log('Showing emoji picker');
             showPicker();
@@ -822,7 +822,7 @@ function setupEmojiPicker() {
             console.log('Hiding emoji picker');
             hidePicker();
         }
-        
+
         // Reset flag after a short delay
         setTimeout(() => {
             isHandlingClick = false;
@@ -835,12 +835,12 @@ function setupEmojiPicker() {
         if (!container.classList.contains('hidden') &&
             !container.contains(e.target) &&
             e.target !== newBtnEmoji) {
-            
+
             // Clear any existing timeout
             if (outsideClickTimeout) {
                 clearTimeout(outsideClickTimeout);
             }
-            
+
             // Delay hiding to prevent immediate hide after show
             outsideClickTimeout = setTimeout(() => {
                 if (!container.classList.contains('hidden')) {
@@ -852,12 +852,12 @@ function setupEmojiPicker() {
 
     function showPicker() {
         console.log('showPicker called, EmojiMart available:', typeof EmojiMart !== 'undefined');
-        
+
         // Clear any existing outside click timeout
         if (outsideClickTimeout) {
             clearTimeout(outsideClickTimeout);
         }
-        
+
         if (!pickerInstance) {
             // Use global EmojiMart object from browser script
             if (typeof EmojiMart === 'undefined') {
@@ -867,7 +867,7 @@ function setupEmojiPicker() {
             }
 
             console.log('Creating emoji picker instance...');
-            
+
             const pickerOptions = {
                 data: async () => {
                     const response = await fetch(
@@ -915,7 +915,7 @@ function setupEmojiPicker() {
             console.log('Emoji picker created successfully');
         }
         container.classList.remove('hidden');
-        
+
         // Debug: Check if the picker is actually visible
         setTimeout(() => {
             const rect = container.getBoundingClientRect();
@@ -1559,6 +1559,11 @@ function setupGestures() {
         }
 
         // Catch buttons, room items, or any clickable UI element
+        // EXCEPTION: Don't trigger if it's the emoji or color button, let native click handle it
+        if (target.closest('#btn-emoji, #btn-color, #emoji-picker-container, #color-picker-popover')) {
+            return;
+        }
+
         const clickable = target.closest('button, .room-item');
         if (clickable) {
             clickable.click();
