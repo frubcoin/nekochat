@@ -196,13 +196,20 @@ const DOM = {
     roomsSidebar: document.getElementById('rooms-sidebar'),
     sidebar: document.getElementById('sidebar'),
     sidebarBackdrop: document.getElementById('sidebar-backdrop'),
+    languageSelect: document.getElementById('language-select'),
 };
 
+let userLanguage = 'en';
 let currentUsername = '';
 try {
     const savedName = localStorage.getItem('chat_username') || '';
     if (savedName && DOM.usernameInput) {
         DOM.usernameInput.value = savedName;
+    }
+    const savedLang = localStorage.getItem('chat_language') || 'en';
+    if (savedLang && DOM.languageSelect) {
+        DOM.languageSelect.value = savedLang;
+        userLanguage = savedLang;
     }
 } catch (e) { }
 
@@ -460,8 +467,10 @@ DOM.loginForm.addEventListener('submit', (e) => {
     const name = DOM.usernameInput.value.trim();
     if (!name) return;
     currentUsername = name;
+    userLanguage = DOM.languageSelect ? DOM.languageSelect.value : 'en';
     try {
         localStorage.setItem('chat_username', name);
+        localStorage.setItem('chat_language', userLanguage);
     } catch (e) { }
     if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
@@ -722,7 +731,36 @@ function formatTime(ts) {
     return `${h}:${m} ${ampm}`;
 }
 
-function appendChatMessage(data) {
+async function translateText(text, targetLang) {
+    try {
+        const response = await fetch("https://libretranslate.de/translate", {
+            method: "POST",
+            body: JSON.stringify({
+                q: text,
+                source: "auto",
+                target: targetLang,
+                format: "text",
+                api_key: ""
+            }),
+            headers: { "Content-Type": "application/json" }
+        });
+
+        if (!response.ok) return null;
+        const data = await response.json();
+
+        // If detected language is already the target language, don't show translation
+        if (data.detectedLanguage && data.detectedLanguage.language === targetLang) {
+            return null;
+        }
+
+        return data.translatedText;
+    } catch (err) {
+        console.error("Translation error:", err);
+        return null;
+    }
+}
+
+async function appendChatMessage(data) {
     if (data.isOwner || data.isMod || data.isAdmin) {
         console.log('[CHAT-RENDER] Badge Data:', {
             user: data.username,
@@ -766,6 +804,20 @@ function appendChatMessage(data) {
     div.querySelector('.msg-text').innerText = data.text.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
 
     DOM.chatMessages.appendChild(div);
+
+    // Auto-Translation: Skip if system message or if it's our own message?
+    // User requested "force translation on any non native language".
+    // We'll check if it's in a different language.
+    if (data.text && userLanguage) {
+        const result = await translateText(data.text, userLanguage);
+        if (result && result.trim().toLowerCase() !== data.text.trim().toLowerCase()) {
+            const translationDiv = document.createElement('div');
+            translationDiv.className = 'msg-translation';
+            translationDiv.textContent = `🌐 ${result}`;
+            div.appendChild(translationDiv);
+            scrollToBottom();
+        }
+    }
 }
 
 function appendSystemMessage(data) {
