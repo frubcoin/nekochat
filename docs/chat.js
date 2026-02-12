@@ -1025,26 +1025,11 @@ function setupGestures() {
             return;
         }
 
-        // 2. Onboarding Buttons (Snappier response)
-        if (target.id === 'btn-phantom') {
-            connectWallet(false);
-            return;
-        }
-
-        // 3. Sidebar Buttons
-        if (target.id === 'btn-admin-game') {
-            target.click();
-            return;
-        }
-
-        const roomItem = target.closest('.room-item');
-        if (roomItem) {
-            roomItem.click();
-            return;
-        }
-
-        if (target.closest('#login-form button[type="submit"]')) {
-            // Standard form submit handles it, but we've ensured tap is snappy
+        // 2. Universal Button/Item Taps (Catch-all for zero-latency)
+        const clickable = target.closest('button, .room-item');
+        if (clickable) {
+            // Trigger native click for immediate response
+            clickable.click();
             return;
         }
     });
