@@ -153,13 +153,7 @@ function connectWebSocket(roomId) {
             case 'game-series-end':
                 if (currentUsername) showGameOverlay('series-end', data);
                 break;
-            case 'translation-result':
-                const resolve = pendingTranslations.get(data.originalText);
-                if (resolve) {
-                    resolve(data.translatedText);
-                    pendingTranslations.delete(data.originalText);
-                }
-                break;
+
         }
     });
 
@@ -227,7 +221,7 @@ try {
     }
 } catch (e) { }
 
-const pendingTranslations = new Map();
+
 
 // let currentWalletAddress = null; // Moved up to state section
 
@@ -1110,7 +1104,23 @@ async function getGoogleAiLanguageDetector() {
     const capabilities = await window.ai.languageDetector.capabilities();
     if (!capabilities || capabilities.available === 'no') return null;
 
-    return window.ai.languageDetector.create();
+    let detector;
+    if (capabilities.available === 'readily') {
+        detector = await window.ai.languageDetector.create();
+    } else {
+        // Model needs to be downloaded
+        console.log('[AI] Downloading language detection model...');
+        detector = await window.ai.languageDetector.create({
+            monitor(m) {
+                m.addEventListener('downloadprogress', (e) => {
+                    console.log(`[AI] Language Model Download: ${Math.round((e.loaded / e.total) * 100)}%`);
+                });
+            },
+        });
+        console.log('[AI] Language detection model ready.');
+    }
+
+    return detector;
 }
 
 async function getGoogleAiTranslator(sourceLang, targetLang) {
@@ -1126,10 +1136,35 @@ async function getGoogleAiTranslator(sourceLang, targetLang) {
 
     if (!capabilities || capabilities.available === 'no') return null;
 
-    return window.ai.translator.create({
-        sourceLanguage: sourceLang,
-        targetLanguage: targetLang
-    });
+    let translator;
+    if (capabilities.available === 'readily') {
+        translator = await window.ai.translator.create({
+            sourceLanguage: sourceLang,
+            targetLanguage: targetLang
+        });
+    } else {
+        // Model needs to be downloaded
+        console.log(`[AI] Downloading translation model for ${sourceLang} -> ${targetLang}...`);
+
+        // Notify user via system message if it's taking time
+        appendSystemMessage({
+            text: `Downloading AI translation model for ${sourceLang} → ${targetLang}... This may take a moment.`
+        });
+
+        translator = await window.ai.translator.create({
+            sourceLanguage: sourceLang,
+            targetLanguage: targetLang,
+            monitor(m) {
+                m.addEventListener('downloadprogress', (e) => {
+                    const percent = Math.round((e.loaded / e.total) * 100);
+                    console.log(`[AI] Translation Model Download: ${percent}%`);
+                });
+            },
+        });
+        console.log('[AI] Translation model ready.');
+    }
+
+    return translator;
 }
 
 async function translateText(text, targetLang) {
@@ -1182,32 +1217,7 @@ async function translateText(text, targetLang) {
         }
     }
 
-    // --- TIER 3: Server-side translation fallback ---
-    return new Promise((resolve) => {
-        if (!ws || ws.readyState !== WebSocket.OPEN) return resolve(null);
-
-        console.log(`[TRANSLATION] Requesting server-side translation for: "${text.substring(0, 20)}..."`);
-
-        // Timeout for server response
-        const timeout = setTimeout(() => {
-            if (pendingTranslations.has(text)) {
-                console.warn(`[TRANSLATION] Server timeout for: "${text.substring(0, 20)}..."`);
-                pendingTranslations.delete(text);
-                resolve(null);
-            }
-        }, 10000);
-
-        pendingTranslations.set(text, (result) => {
-            clearTimeout(timeout);
-            resolve(result);
-        });
-
-        ws.send(JSON.stringify({
-            type: 'translate',
-            text: text,
-            targetLang: targetLang
-        }));
-    });
+    return null;
 }
 
 async function appendChatMessage(data, isHistory = false) {
