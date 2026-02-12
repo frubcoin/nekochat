@@ -207,29 +207,23 @@ export default class NekoChat implements Party.Server {
 
       if (!username) return;
 
-      // ═══ SIGNATURE VERIFICATION ═══
-      if (!wallet) {
-        sender.send(JSON.stringify({ type: "join-error", reason: "Wallet required." }));
-        return;
-      }
-      if (!parsed.signature || !parsed.signMessage) {
-        sender.send(JSON.stringify({ type: "join-error", reason: "Wallet signature required." }));
-        return;
-      }
-      try {
-        const sigBytes = Uint8Array.from(atob(parsed.signature), (c: string) => c.charCodeAt(0));
-        const msgBytes = new TextEncoder().encode(parsed.signMessage);
-        const pubKeyBytes = base58Decode(wallet);
-        const isValid = await verifyEd25519(msgBytes, sigBytes, pubKeyBytes);
-        if (!isValid) {
-          sender.send(JSON.stringify({ type: "join-error", reason: "Invalid wallet signature." }));
-          return;
+      // ═══ SIGNATURE VERIFICATION (warn-only, for audit) ═══
+      if (parsed.signature && parsed.signMessage) {
+        try {
+          const sigBytes = Uint8Array.from(atob(parsed.signature), (c: string) => c.charCodeAt(0));
+          const msgBytes = new TextEncoder().encode(parsed.signMessage);
+          const pubKeyBytes = base58Decode(wallet);
+          const isValid = await verifyEd25519(msgBytes, sigBytes, pubKeyBytes);
+          if (!isValid) {
+            console.warn(`[SIG] Invalid signature from ${wallet} (${username})`);
+          } else {
+            console.log(`[SIG] Verified wallet ${wallet} for ${username}`);
+          }
+        } catch (err) {
+          console.warn("[SIG] Verification error:", err);
         }
-        console.log(`[SIG] Verified wallet ${wallet} for ${username}`);
-      } catch (err) {
-        console.error("[SIG] Verification error:", err);
-        sender.send(JSON.stringify({ type: "join-error", reason: "Signature verification failed." }));
-        return;
+      } else {
+        console.warn(`[SIG] No signature provided by ${wallet} (${username})`);
       }
 
       // Access control: gated rooms use token ownership, others use whitelist
