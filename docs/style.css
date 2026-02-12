@@ -540,6 +540,17 @@ body {
   font-weight: 600;
 }
 
+.owner-badge {
+  background: #FFD700;
+  color: #000;
+  font-size: 9px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-weight: 700;
+  vertical-align: middle;
+  letter-spacing: 0.5px;
+}
+
 .admin-badge {
   background: #ff3333;
   color: #fff;

@@ -627,7 +627,12 @@ function appendChatMessage(data) {
     nameEl.textContent = data.username;
     nameEl.style.color = data.color;
 
-    if (data.isAdmin) {
+    if (data.isOwner) {
+        const badge = document.createElement('span');
+        badge.className = 'owner-badge';
+        badge.textContent = 'OWNER';
+        nameEl.after(badge);
+    } else if (data.isAdmin) {
         const badge = document.createElement('span');
         badge.className = 'admin-badge';
         badge.textContent = 'ADMIN';

@@ -106,6 +106,10 @@ export default class NekoChat implements Party.Server {
     return Array.from(new Set([...envAdmins, ...storedAdmins]));
   }
 
+  private getOwnerWallet(): string {
+    return (this.room.env.OWNER_WALLET as string) || "";
+  }
+
   private async isWhitelisted(wallet: string): Promise<boolean> {
     const admins = await this.getAllAdminWallets();
     const envMembers = this.getMemberWallets();
@@ -324,9 +328,13 @@ export default class NekoChat implements Party.Server {
         : getRandomColor();
       const allAdmins = await this.getAllAdminWallets();
       const allMods = await this.getStoredModWallets();
+      const ownerWallet = this.getOwnerWallet();
+
       const isAdmin = allAdmins.includes(wallet);
       const isMod = allMods.includes(wallet);
-      sender.setState({ username, color, wallet, isAdmin, isMod });
+      const isOwner = wallet === ownerWallet;
+
+      sender.setState({ username, color, wallet, isAdmin, isMod, isOwner });
 
       if (isAdmin) {
         sender.send(JSON.stringify({ type: "admin-mode" }));
@@ -499,25 +507,79 @@ export default class NekoChat implements Party.Server {
     }
 
     if (parsed.type === "chat") {
-      const { username, color, isAdmin } = sender.state as {
+      const { username, color, isAdmin, isMod, isOwner } = sender.state as {
         username: string;
         color: string;
         isAdmin: boolean;
+        isMod: boolean;
+        isOwner: boolean;
       };
 
       if (!username) return;
 
-      // Handle Admin Commands
-      if (isAdmin && parsed.text.startsWith("/")) {
+      // Handle Admin/Mod/Owner Commands
+      if ((isAdmin || isMod || isOwner) && parsed.text.startsWith("/")) {
         const parts = parsed.text.trim().split(/\s+/);
         const command = parts[0].toLowerCase();
-        const subCommand = parts[1]; // for /whitelist subcommands
+        const subCommand = parts[1];
         const val = parts.slice(2).join(" ");
-        const fullArg = parts.slice(1).join(" "); // for /pin etc
-        if (command === "/admin") {
+        const fullArg = parts.slice(1).join(" ");
+
+        // ADMIN/OWNER: Manage Moderators
+        if ((isAdmin || isOwner) && command === "/mod") {
+          const storedMods = await this.getStoredModWallets();
+
+          if (subCommand === "add") {
+            const target = parts[2] || "";
+            const cleanTarget = target.trim();
+            if (cleanTarget && !storedMods.includes(cleanTarget)) {
+              storedMods.push(cleanTarget);
+              await this.room.storage.put("storedModWallets", storedMods);
+
+              let found = false;
+              for (const conn of this.room.getConnections()) {
+                const state = conn.state as any;
+                if (state && state.wallet === cleanTarget) {
+                  conn.setState({ ...state, isMod: true });
+                  found = true;
+                }
+              }
+              if (found) this.broadcastUserList();
+
+              sender.send(JSON.stringify({ type: "system-message", text: `✅ Added MOD: ${cleanTarget}` }));
+            } else {
+              sender.send(JSON.stringify({ type: "system-message", text: `⚠️ Invalid or already mod: ${cleanTarget}` }));
+            }
+          } else if (subCommand === "remove") {
+            const target = parts[2] || "";
+            const cleanTarget = target.trim();
+            const newMods = storedMods.filter(m => m !== cleanTarget);
+            await this.room.storage.put("storedModWallets", newMods);
+
+            let found = false;
+            for (const conn of this.room.getConnections()) {
+              const state = conn.state as any;
+              if (state && state.wallet === cleanTarget) {
+                conn.setState({ ...state, isMod: false });
+                found = true;
+              }
+            }
+            if (found) this.broadcastUserList();
+
+            sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed MOD: ${cleanTarget}` }));
+          }
+          return;
+        }
+
+        // OWNER/ADMIN: Manage Admins
+        if ((isAdmin || isOwner) && command === "/admin") {
           const storedAdmins = await this.getStoredAdminWallets();
 
           if (subCommand === "add") {
+            if (!isOwner) {
+              sender.send(JSON.stringify({ type: "system-message", text: `⛔ Only the Owner can add admins.` }));
+              return;
+            }
             const target = parts[2] || "";
             const cleanTarget = target.trim();
 
@@ -525,7 +587,6 @@ export default class NekoChat implements Party.Server {
               storedAdmins.push(cleanTarget);
               await this.room.storage.put("storedAdminWallets", storedAdmins);
 
-              // Immediate update: Find if user is online and update state
               let found = false;
               for (const conn of this.room.getConnections()) {
                 const state = conn.state as any;
@@ -535,18 +596,40 @@ export default class NekoChat implements Party.Server {
                   found = true;
                 }
               }
-              if (found) {
-                this.broadcastUserList();
-              }
+              if (found) this.broadcastUserList();
 
               sender.send(JSON.stringify({ type: "system-message", text: `✅ Added ADMIN: ${cleanTarget}` }));
             } else {
               sender.send(JSON.stringify({ type: "system-message", text: `⚠️ Invalid or already admin: ${cleanTarget}` }));
             }
+          } else if (subCommand === "remove") {
+            if (!isOwner) {
+              sender.send(JSON.stringify({ type: "system-message", text: `⛔ Only the Owner can remove admins.` }));
+              return;
+            }
+            const target = parts[2] || "";
+            const cleanTarget = target.trim();
+            const newAdmins = storedAdmins.filter(a => a !== cleanTarget);
+            await this.room.storage.put("storedAdminWallets", newAdmins);
+
+            // Immediate update
+            let found = false;
+            for (const conn of this.room.getConnections()) {
+              const state = conn.state as any;
+              if (state && state.wallet === cleanTarget) {
+                conn.setState({ ...state, isAdmin: false });
+                // We don't send "admin-mode" false, just remove privileges
+                found = true;
+              }
+            }
+            if (found) this.broadcastUserList();
+
+            sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed ADMIN: ${cleanTarget}` }));
           }
           return;
         }
 
+        // WHITELIST / BAN / MUTE / CLEAR (Privileged)
         if (command === "/whitelist" || command === "/aa") {
           let stored = await this.getStoredMemberWallets();
 
@@ -607,41 +690,66 @@ export default class NekoChat implements Party.Server {
           }
           return;
         }
-      }
 
-      if (command === "/mute") {
-        const target = parts[1];
-        if (this.mutedUsers.has(target)) {
-          this.mutedUsers.delete(target);
-          sender.send(JSON.stringify({ type: "system-message", text: `🔊 Unmuted ${target}.` }));
-        } else {
-          this.mutedUsers.add(target);
-          sender.send(JSON.stringify({ type: "system-message", text: `🔇 Muted ${target}.` }));
+        if (command === "/ban") {
+          const target = parts[1] || "";
+          const cleanTarget = target.trim();
+          if (!cleanTarget) return;
+
+          // Remove from whitelist
+          let stored = await this.getStoredMemberWallets();
+          if (stored.includes(cleanTarget)) {
+            stored = stored.filter(w => w !== cleanTarget);
+            await this.room.storage.put("storedMemberWallets", stored);
+            sender.send(JSON.stringify({ type: "system-message", text: `🔨 Banned (removed from whitelist): ${cleanTarget}` }));
+
+            // Kick if online
+            for (const conn of this.room.getConnections()) {
+              const state = conn.state as any;
+              if (state && state.wallet === cleanTarget) {
+                conn.close(1008, "Banned by moderator");
+              }
+            }
+          } else {
+            sender.send(JSON.stringify({ type: "system-message", text: `⚠️ ${cleanTarget} is not on the whitelist.` }));
+          }
+          return;
         }
-        return;
-      }
 
-      if (command === "/clear") {
-        await this.room.storage.delete("chatHistory");
-        this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
-        sender.send(JSON.stringify({ type: "system-message", text: "🧼 Chat history cleared." }));
-        return;
-      }
+        if (command === "/mute") {
+          const target = parts[1];
+          if (this.mutedUsers.has(target)) {
+            this.mutedUsers.delete(target);
+            sender.send(JSON.stringify({ type: "system-message", text: `🔊 Unmuted ${target}.` }));
+          } else {
+            this.mutedUsers.add(target);
+            sender.send(JSON.stringify({ type: "system-message", text: `🔇 Muted ${target}.` }));
+          }
+          return;
+        }
 
-      if (command === "/pin") {
-        this.pinnedMessage = fullArg;
-        await this.room.storage.put("pinnedMessage", fullArg);
-        this.room.broadcast(JSON.stringify({ type: "pinned-update", text: fullArg }));
-        sender.send(JSON.stringify({ type: "system-message", text: "📌 Message pinned." }));
-        return;
-      }
+        if (command === "/clear") {
+          await this.room.storage.delete("chatHistory");
+          this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
+          sender.send(JSON.stringify({ type: "system-message", text: "🧼 Chat history cleared." }));
+          return;
+        }
 
-      if (command === "/unpin") {
-        this.pinnedMessage = null;
-        await this.room.storage.delete("pinnedMessage");
-        this.room.broadcast(JSON.stringify({ type: "pinned-update", text: null }));
-        sender.send(JSON.stringify({ type: "system-message", text: "📍 Message unpinned." }));
-        return;
+        if (command === "/pin") {
+          this.pinnedMessage = fullArg;
+          await this.room.storage.put("pinnedMessage", fullArg);
+          this.room.broadcast(JSON.stringify({ type: "pinned-update", text: fullArg }));
+          sender.send(JSON.stringify({ type: "system-message", text: "📌 Message pinned." }));
+          return;
+        }
+
+        if (command === "/unpin") {
+          this.pinnedMessage = null;
+          await this.room.storage.delete("pinnedMessage");
+          this.room.broadcast(JSON.stringify({ type: "pinned-update", text: null }));
+          sender.send(JSON.stringify({ type: "system-message", text: "📍 Message unpinned." }));
+          return;
+        }
       }
     }
 
@@ -686,6 +794,8 @@ export default class NekoChat implements Party.Server {
       color,
       text,
       isAdmin,
+      isMod,
+      isOwner,
       timestamp: Date.now(),
     };
 
