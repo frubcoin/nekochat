@@ -1142,6 +1142,17 @@ body {
   #chat-form {
     padding: 12px 16px;
   }
+
+  /* Make onboarding buttons easier to press */
+  .btn-primary {
+    padding: 16px 32px;
+    font-size: 16px;
+  }
+
+  .input-minimal {
+    padding: 14px 18px;
+    font-size: 16px;
+  }
 }
 
 /* ═══ ADMIN ═══ */
