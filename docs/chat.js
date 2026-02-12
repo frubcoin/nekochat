@@ -1031,9 +1031,20 @@ function setupGestures() {
             return;
         }
 
+        // 3. Sidebar Buttons
+        if (target.id === 'btn-admin-game') {
+            target.click();
+            return;
+        }
+
+        const roomItem = target.closest('.room-item');
+        if (roomItem) {
+            roomItem.click();
+            return;
+        }
+
         if (target.closest('#login-form button[type="submit"]')) {
-            // Let standard submit handler handle it for now, 
-            // but we've ensured the tap is registered.
+            // Standard form submit handles it, but we've ensured tap is snappy
             return;
         }
     });
