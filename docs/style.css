@@ -81,11 +81,14 @@ body {
   bottom: -50%;
   width: 200%;
   height: 200vh;
-  background: transparent url('./noise-transparent.png') repeat 0 0;
+  background: transparent url('noise-transparent.png') repeat 0 0;
   background-repeat: repeat;
+  background-size: 200px 200px;
   animation: bg-animation .2s infinite;
   opacity: .9;
   visibility: visible;
+  pointer-events: none;
+  z-index: -1;
 }
 
 @keyframes bg-animation {
