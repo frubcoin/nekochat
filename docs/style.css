@@ -578,7 +578,10 @@ body {
   border-radius: var(--radius);
   padding: 8px 16px;
   box-shadow: var(--shadow);
-  max-width: 1200px;
+  width: 100%;
+  /* Wider input area */
+  max-width: 100%;
+  /* Allow full width */
   margin: 0 auto;
 }
 
@@ -624,20 +627,21 @@ body {
 
 .btn-send {
   font-family: var(--font-body);
-  font-size: 18px;
-  font-weight: 600;
-  width: 44px;
-  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--accent);
   color: var(--bg);
   border: none;
-  border-radius: 50%;
+  border-radius: 8px;
+  /* Slightly rounded square to match input */
   cursor: pointer;
+  width: 42px;
+  /* Fixed width for icon */
+  height: 42px;
+  padding: 0;
+  transition: all 0.2s;
   flex-shrink: 0;
-  transition: opacity 0.2s;
 }
 
 /* ═══ EMOJI PICKER ═══ */
