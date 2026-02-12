@@ -312,21 +312,30 @@ DOM.btnPhantom.addEventListener('click', async () => {
         try {
             const resp = await window.solana.connect();
             currentWalletAddress = resp.publicKey.toString();
+            console.log('[WALLET] Connected:', currentWalletAddress);
 
-            // Sign a message to prove wallet ownership
-            const msg = 'Sign in to tryl.chat';
-            const encodedMsg = new TextEncoder().encode(msg);
-            const { signature } = await window.solana.signMessage(encodedMsg, 'utf8');
-            currentSignature = btoa(String.fromCharCode(...new Uint8Array(signature)));
-            currentSignMsg = msg;
-
-            // Check token balance for gated rooms
+            // Check token balance FIRST (before signing)
             hasToken = await checkTokenBalance(currentWalletAddress);
+            console.log('[WALLET] hasToken:', hasToken);
             renderRoomList();
+
+            // Then sign a message to prove wallet ownership
+            try {
+                const msg = 'Sign in to tryl.chat';
+                const encodedMsg = new TextEncoder().encode(msg);
+                const { signature } = await window.solana.signMessage(encodedMsg, 'utf8');
+                currentSignature = btoa(String.fromCharCode(...new Uint8Array(signature)));
+                currentSignMsg = msg;
+                console.log('[WALLET] Message signed successfully');
+            } catch (signErr) {
+                console.error('[WALLET] Sign failed:', signErr);
+                alert('Message signing is required to enter chat. Please try again and approve the signature.');
+                return;
+            }
 
             goToStep2();
         } catch (err) {
-            console.error(err);
+            console.error('[WALLET] Connect error:', err);
             alert('Connection failed or rejected');
         }
     } else {
