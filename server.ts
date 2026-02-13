@@ -250,8 +250,9 @@ export default class NekoChat implements Party.Server {
 
 
   // Token check cache
-  tokenCache: Map<string, { ok: boolean; timestamp: number }>;
+  tokenCache: Map<string, { ok: boolean; timestamp: number; ttlMs: number }>;
   readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+  readonly FAIL_CACHE_TTL_MS = 15 * 1000; // 15 seconds for failed checks
 
   constructor(readonly room: Party.Room) {
     this.tokenCache = new Map();
@@ -285,6 +286,15 @@ export default class NekoChat implements Party.Server {
     }
   }
 
+  private proxyLabel(proxyUrl: string): string {
+    try {
+      const u = new URL(proxyUrl);
+      return `${u.origin}${u.pathname}`;
+    } catch {
+      return proxyUrl;
+    }
+  }
+
   private async verifyTokenViaProxy(wallet: string): Promise<{ ok: boolean; detail: string } | null> {
     const proxyUrl = ((this.room.env.TOKEN_CHECK_PROXY_URL as string) || "").trim();
     if (!proxyUrl) return null;
@@ -297,7 +307,9 @@ export default class NekoChat implements Party.Server {
         method: "GET",
         headers: proxySecret ? { "x-relay-secret": proxySecret } : {}
       });
-      if (!response.ok) return { ok: false, detail: `Relay returned HTTP ${response.status}` };
+      if (!response.ok) {
+        return { ok: false, detail: `Relay ${this.proxyLabel(proxyUrl)} returned HTTP ${response.status}` };
+      }
 
       const data: any = await response.json();
       if (typeof data?.ok === "boolean") {
@@ -312,7 +324,7 @@ export default class NekoChat implements Party.Server {
   private async verifyTokenHolder(wallet: string): Promise<{ ok: boolean; detail: string }> {
     // 1. Check Cache
     const cached = this.tokenCache.get(wallet);
-    if (cached && (Date.now() - cached.timestamp < this.CACHE_TTL_MS)) {
+    if (cached && (Date.now() - cached.timestamp < cached.ttlMs)) {
       // console.log(`[CACHE] Hit for ${wallet}: ${cached.ok}`);
       return { ok: cached.ok, detail: "Cached result" };
     }
@@ -320,7 +332,11 @@ export default class NekoChat implements Party.Server {
     // Try multiple RPC endpoints — Helius returns 401 from CF Workers
     const proxied = await this.verifyTokenViaProxy(wallet);
     if (proxied) {
-      this.tokenCache.set(wallet, { ok: proxied.ok, timestamp: Date.now() });
+      this.tokenCache.set(wallet, {
+        ok: proxied.ok,
+        timestamp: Date.now(),
+        ttlMs: proxied.ok ? this.CACHE_TTL_MS : this.FAIL_CACHE_TTL_MS
+      });
       return proxied;
     }
 
@@ -363,14 +379,14 @@ export default class NekoChat implements Party.Server {
           for (const account of data.result.value) {
             const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
             if (amount > 0) {
-              this.tokenCache.set(wallet, { ok: true, timestamp: Date.now() });
+              this.tokenCache.set(wallet, { ok: true, timestamp: Date.now(), ttlMs: this.CACHE_TTL_MS });
               return { ok: true, detail: `Balance: ${amount}` };
             }
           }
-          this.tokenCache.set(wallet, { ok: false, timestamp: Date.now() });
+          this.tokenCache.set(wallet, { ok: false, timestamp: Date.now(), ttlMs: this.FAIL_CACHE_TTL_MS });
           return { ok: false, detail: `Found ${data.result.value.length} account(s) but all balances are 0` };
         }
-        this.tokenCache.set(wallet, { ok: false, timestamp: Date.now() });
+        this.tokenCache.set(wallet, { ok: false, timestamp: Date.now(), ttlMs: this.FAIL_CACHE_TTL_MS });
         return { ok: false, detail: `No token accounts found for mint ${TOKEN_MINT}` };
       } catch (err: any) {
         rpcErrors.push(`${this.rpcLabel(rpc)}: ${err?.message || "request failed"}`);
