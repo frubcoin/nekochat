@@ -1776,14 +1776,44 @@ body {
   position: relative;
 }
 
-/* Push footer to bottom */
+/* SIDEBAR FOOTER */
 .sidebar-footer {
-  margin-top: auto;
-  padding: 16px;
+  padding: 12px;
+  border-top: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.zoom-controls {
+  display: flex;
   align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+
+.scroll-controls {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+#btn-zoom-reset {
+  background: var(--bg-hover);
+  border: 1px solid var(--border-light);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#scale-slider {
+  flex: 1;
+  accent-color: var(--text);
+  cursor: pointer;
+  height: 4px;
 }
 
 .scroll-btn {

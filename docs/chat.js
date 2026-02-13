@@ -643,158 +643,114 @@ const COMMANDS_DATA = {
     ]
 };
 
-const btnCommands = document.getElementById('btn-commands');
-const commandPopover = document.getElementById('command-popover');
-
-if (btnCommands && commandPopover) {
-    btnCommands.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isHidden = commandPopover.classList.contains('hidden');
-
-        // Close others
-        document.getElementById('emoji-picker-container')?.classList.add('hidden');
-        document.getElementById('color-picker-popover')?.classList.add('hidden');
-
-        if (!isHidden) {
-            commandPopover.classList.add('hidden');
-            return;
-        }
-
-        // Build list based on role
-        const role = isOwner ? 'owner' : (isAdmin ? 'admin' : (isMod ? 'mod' : 'user'));
-        let availablecommands = [...COMMANDS_DATA.user]; // Everyone gets user cmds
-
-        if (isMod || isAdmin || isOwner) {
-            availablecommands = [...availablecommands, ...COMMANDS_DATA.mod];
-        }
-        if (isAdmin || isOwner) {
-            availablecommands = [...availablecommands, ...COMMANDS_DATA.admin];
-        }
-        if (isOwner) {
-            availablecommands = [...availablecommands, ...COMMANDS_DATA.owner];
-        }
-
-        commandPopover.innerHTML = `
-            <div class="command-header">
-                <span>Available Commands (${role.toUpperCase()})</span>
-                <span style="font-size:10px; opacity:0.7">Click to use</span>
-            </div>
-            <div class="command-list">
-                ${availablecommands.map(c => `
-                    <div class="command-item" data-cmd="${c.cmd.split(' ')[0]} ">
-                        <div class="cmd-code">${c.cmd}</div>
-                        <div class="cmd-desc">${c.desc}</div>
-                    </div>
-                `).join('')}
-            </div>
-        `;
-
-        commandPopover.classList.remove('hidden');
-
-        // Add click listeners to items
-        commandPopover.querySelectorAll('.command-item').forEach(item => {
-            item.addEventListener('click', () => {
-                const cmd = item.dataset.cmd;
-                DOM.chatInput.value = cmd;
-                DOM.chatInput.focus();
-                commandPopover.classList.add('hidden');
-            });
-        });
-    });
-
-    // Close on outside click
-    document.addEventListener('click', (e) => {
-        if (!commandPopover.contains(e.target) && e.target !== btnCommands) {
-            commandPopover.classList.add('hidden');
-        }
-    });
-}
-
 // ═══ APPEARANCE UI ═══
-const btnAppearance = document.getElementById('btn-appearance');
-const appearancePopover = document.getElementById('appearance-popover');
-const scaleSlider = document.getElementById('scale-slider');
-const btnScaleDown = document.getElementById('btn-scale-down');
-const btnScaleUp = document.getElementById('btn-scale-up');
-const btnScaleReset = document.getElementById('btn-scale-reset');
-const scaleDisplay = document.getElementById('scale-value-display');
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('[UI] Initializing UI elements...');
 
-// ═══ UI SCALING ═══
-function initUIScale() {
-    const savedScale = localStorage.getItem('ui_scale') || '1';
-    // Use 'zoom' property for global scaling as requested by typical "scale everything" behavior
-    // Note: 'zoom' is non-standard but effective for this. Transform:scale needs width compensation.
-    // If standard needed: document.body.style.transform = `scale(${savedScale})`;
-    // But let's try CSS variable first if implementation supports it, otherwise fallback.
-    // Actually, simply setting the property here to be picked up by CSS:
-    document.documentElement.style.setProperty('--ui-scale', savedScale);
-}
-initUIScale();
+    // Commands
+    const btnCommands = document.getElementById('btn-commands');
+    const commandPopover = document.getElementById('command-popover');
+    console.log('[UI] Commands:', { btn: !!btnCommands, popover: !!commandPopover });
 
-function updateScale(val) {
-    let scale = parseFloat(val);
-    scale = Math.max(0.5, Math.min(2.0, scale)); // Clamp
+    if (btnCommands && commandPopover) {
+        btnCommands.addEventListener('click', (e) => {
+            console.log('[UI] Command button clicked');
+            e.stopPropagation();
+            const isHidden = commandPopover.classList.contains('hidden');
 
-    document.documentElement.style.setProperty('--ui-scale', scale);
-    localStorage.setItem('ui_scale', scale); // Persist!
+            // Close others
+            document.getElementById('emoji-picker-container')?.classList.add('hidden');
+            document.getElementById('color-picker-popover')?.classList.add('hidden');
 
-    if (scaleSlider) scaleSlider.value = scale;
-    if (scaleDisplay) scaleDisplay.textContent = Math.round(scale * 100) + '%';
-}
+            if (!isHidden) {
+                commandPopover.classList.add('hidden');
+            } else {
+                commandPopover.classList.remove('hidden');
+                updateCommandList(); // Helper to render list
+            }
+        });
 
-if (btnAppearance && appearancePopover) {
-    // Toggle popover
-    btnAppearance.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const isHidden = appearancePopover.classList.contains('hidden');
+        // Close on outside click
+        document.addEventListener('click', (e) => {
+            if (!commandPopover.contains(e.target) && e.target !== btnCommands) {
+                commandPopover.classList.add('hidden');
+            }
+        });
+    }
 
-        // Close others
-        document.getElementById('emoji-picker-container')?.classList.add('hidden');
-        document.getElementById('color-picker-popover')?.classList.add('hidden');
-        document.getElementById('command-popover')?.classList.add('hidden');
+    // Scaling
+    const scaleSlider = document.getElementById('scale-slider');
+    const btnZoomReset = document.getElementById('btn-zoom-reset');
+    console.log('[UI] Scaling:', { slider: !!scaleSlider, reset: !!btnZoomReset });
 
-        if (!isHidden) {
-            appearancePopover.classList.add('hidden');
-        } else {
-            appearancePopover.classList.remove('hidden');
-            // Sync slider with current value
-            const current = localStorage.getItem('ui_scale') || '1';
-            updateScale(current);
-        }
-    });
+    function initUIScale() {
+        const savedScale = localStorage.getItem('ui_scale') || '1';
+        document.documentElement.style.setProperty('--ui-scale', savedScale);
+        if (scaleSlider) scaleSlider.value = savedScale;
+    }
+    initUIScale();
 
-    // Close on outside click
-    document.addEventListener('click', (e) => {
-        if (!appearancePopover.contains(e.target) && e.target !== btnAppearance) {
-            appearancePopover.classList.add('hidden');
-        }
-    });
+    function updateScale(val) {
+        let scale = parseFloat(val);
+        scale = Math.max(0.5, Math.min(2.0, scale)); // Clamp
 
-    // Slider
+        document.documentElement.style.setProperty('--ui-scale', scale);
+        localStorage.setItem('ui_scale', scale); // Persist!
+
+        if (scaleSlider) scaleSlider.value = scale;
+    }
+
     if (scaleSlider) {
         scaleSlider.addEventListener('input', (e) => {
+            console.log('[UI] Slider input:', e.target.value);
             updateScale(e.target.value);
         });
     }
 
-    // Buttons
-    if (btnScaleDown) {
-        btnScaleDown.addEventListener('click', () => {
-            let current = parseFloat(scaleSlider.value);
-            updateScale((current - 0.1).toFixed(1));
-        });
-    }
-    if (btnScaleUp) {
-        btnScaleUp.addEventListener('click', () => {
-            let current = parseFloat(scaleSlider.value);
-            updateScale((current + 0.1).toFixed(1));
-        });
-    }
-    if (btnScaleReset) {
-        btnScaleReset.addEventListener('click', () => {
+    if (btnZoomReset) {
+        btnZoomReset.addEventListener('click', () => {
+            console.log('[UI] Reset clicked');
             updateScale(1.0);
         });
     }
+});
+
+// Helper for command rendering (moved from inline)
+function updateCommandList() {
+    const commandPopover = document.getElementById('command-popover');
+    if (!commandPopover) return;
+
+    const role = isOwner ? 'owner' : (isAdmin ? 'admin' : (isMod ? 'mod' : 'user'));
+    let availablecommands = [...COMMANDS_DATA.user];
+
+    if (isMod || isAdmin || isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.mod];
+    if (isAdmin || isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.admin];
+    if (isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.owner];
+
+    commandPopover.innerHTML = `
+        <div class="command-header">
+            <span>Available Commands (${role.toUpperCase()})</span>
+            <span style="font-size:10px; opacity:0.7">Click to use</span>
+        </div>
+        <div class="command-list">
+            ${availablecommands.map(c => `
+                <div class="command-item" data-cmd="${c.cmd.split(' ')[0]} ">
+                    <div class="cmd-code">${c.cmd}</div>
+                    <div class="cmd-desc">${c.desc}</div>
+                </div>
+            `).join('')}
+        </div>
+    `;
+
+    // Add click listeners to items
+    commandPopover.querySelectorAll('.command-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const cmd = item.dataset.cmd;
+            DOM.chatInput.value = cmd;
+            DOM.chatInput.focus();
+            commandPopover.classList.add('hidden');
+        });
+    });
 }
 
 function loadWalletColor(wallet) {
