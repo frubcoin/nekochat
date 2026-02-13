@@ -1473,15 +1473,19 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(0, 0, 0, 0.4);
-  padding: 8px 12px;
-  border-radius: 8px 8px 0 0;
+  background: var(--bg-surface);
+  padding: 8px 16px;
+  border-radius: 24px 24px 0 0;
+  /* Match input radius */
   border: 1px solid var(--border);
   border-bottom: none;
   font-size: 13px;
   color: var(--text-muted);
   width: 100%;
-  /* Ensure it spans the width */
+  margin-bottom: -1px;
+  /* Overlap border */
+  z-index: 10;
+  position: relative;
 }
 
 #reply-bar.hidden {
@@ -1545,8 +1549,9 @@ body {
 
 /* ═══ COMPACT MESSAGES ═══ */
 .chat-msg.compact {
-  margin-top: 2px;
-  /* reduced from 8px */
+  margin-top: 0px;
+  padding-top: 2px;
+  padding-bottom: 2px;
 }
 
 .chat-msg.compact .msg-header {
@@ -1558,14 +1563,23 @@ body {
   display: block;
   font-size: 11px;
   color: var(--text-muted);
-  margin-bottom: 4px;
-  padding-left: 8px;
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.05);
   border-left: 2px solid var(--accent);
-  opacity: 0.8;
+  border-radius: 4px;
+  opacity: 0.9;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
+  max-width: 100%;
+}
+
+.msg-reply-context .reply-to-user {
+  font-weight: 700;
+  color: var(--accent);
+  margin-right: 4px;
 }
 
 .msg-reply-context:hover {

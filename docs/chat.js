@@ -1376,15 +1376,24 @@ async function appendChatMessage(data, isHistory = false) {
     }
 
     // Reply Context
+    // Reply Context
     if (data.replyTo) {
         const replyDiv = document.createElement('div');
         replyDiv.className = 'msg-reply-context';
-        replyDiv.textContent = `Replying to ${data.replyTo.username}: ${data.replyTo.text}`;
+        replyDiv.innerHTML = `<span class="reply-to-user">@${data.replyTo.username}</span> ${data.replyTo.text}`;
+
         replyDiv.addEventListener('click', () => {
             // Optional: Scroll to message if we had IDs
             console.log('Clicked reply context');
         });
-        div.appendChild(replyDiv);
+
+        // Insert before text, but after header (if exists)
+        const textEl = div.querySelector('.msg-text');
+        if (textEl) {
+            div.insertBefore(replyDiv, textEl);
+        } else {
+            div.appendChild(replyDiv);
+        }
     }
 
     const unescapedText = data.text.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
