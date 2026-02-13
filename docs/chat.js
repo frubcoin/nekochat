@@ -678,70 +678,63 @@ function initCustomUI() {
             document.getElementById('emoji-picker-container')?.classList.add('hidden');
             document.getElementById('color-picker-popover')?.classList.add('hidden');
 
-            const existing = document.getElementById('command-popover');
+            const existing = document.getElementById('command-palette-overlay');
             if (existing) {
                 existing.remove();
                 return;
             }
 
-            // Create fresh
-            const popover = document.createElement('div');
-            popover.id = 'command-popover';
+            // Create Palette Modal
+            const overlay = document.createElement('div');
+            overlay.id = 'command-palette-overlay';
 
-            // Render content immediately
             const role = isOwner ? 'owner' : (isAdmin ? 'admin' : (isMod ? 'mod' : 'user'));
             let availablecommands = [...COMMANDS_DATA.user];
             if (isMod || isAdmin || isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.mod];
             if (isAdmin || isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.admin];
             if (isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.owner];
 
-            popover.innerHTML = `
-                <div class="command-header">
-                    <span>Available Commands (${role.toUpperCase()})</span>
-                    <span style="font-size:10px; opacity:0.7">Click to use</span>
-                </div>
-                <div class="command-list">
-                    ${availablecommands.length ? availablecommands.map(c => `
-                        <div class="command-item" data-cmd="${c.cmd.split(' ')[0]} ">
-                            <div class="cmd-code">${c.cmd}</div>
-                            <div class="cmd-desc">${c.desc}</div>
-                        </div>
-                    `).join('') : '<div style="padding:10px; color:var(--text-muted)">No commands</div>'}
+            overlay.innerHTML = `
+                <div class="palette-container">
+                    <div class="palette-header">
+                        <h3>Commands (${role.toUpperCase()})</h3>
+                        <span style="font-size:10px; opacity:0.6">ESC to close</span>
+                    </div>
+                    <div class="palette-list">
+                        ${availablecommands.length ? availablecommands.map(c => `
+                            <div class="palette-item" data-cmd="${c.cmd.split(' ')[0]} ">
+                                <div class="palette-cmd">${c.cmd}</div>
+                                <div class="palette-desc">${c.desc}</div>
+                            </div>
+                        `).join('') : '<div style="padding:20px; text-align:center; color:var(--text-muted)">No commands available</div>'}
+                    </div>
                 </div>
             `;
 
-            document.body.appendChild(popover);
-
-            // Position it
-            const rect = btnCommands.getBoundingClientRect();
-            popover.style.display = 'flex';
-            popover.style.flexDirection = 'column';
-            popover.style.position = 'fixed';
-            popover.style.bottom = (window.innerHeight - rect.top + 10) + 'px';
-            popover.style.left = (rect.right - 250) + 'px';
-            popover.style.width = '250px';
-            popover.style.maxHeight = '300px';
-            popover.style.zIndex = '999999';
-            // Copy styles from CSS class manually or rely on ID matching if CSS is good. 
-            // We'll rely on CSS for visual style (colors etc) but enforce layout here.
+            document.body.appendChild(overlay);
 
             // Add click listeners
-            popover.querySelectorAll('.command-item').forEach(item => {
+            overlay.querySelectorAll('.palette-item').forEach(item => {
                 item.addEventListener('click', () => {
                     const cmd = item.getAttribute('data-cmd');
                     DOM.chatInput.value = cmd;
                     DOM.chatInput.focus();
-                    popover.remove();
+                    overlay.remove();
                 });
             });
-        });
 
-        // Close on outside click
-        document.addEventListener('click', (e) => {
-            const popover = document.getElementById('command-popover');
-            if (popover && !popover.contains(e.target) && e.target !== btnCommands) {
-                popover.remove();
-            }
+            // Close logic
+            overlay.addEventListener('click', (e) => {
+                if (e.target === overlay) overlay.remove();
+            });
+
+            const handleEsc = (e) => {
+                if (e.key === 'Escape') {
+                    overlay.remove();
+                    window.removeEventListener('keydown', handleEsc);
+                }
+            };
+            window.addEventListener('keydown', handleEsc);
         });
     }
 
