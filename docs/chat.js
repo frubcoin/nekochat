@@ -381,7 +381,15 @@ function getPhantomProvider() {
     return null;
 }
 
+let isConnecting = false;
+
 async function connectWallet(eager = false) {
+    if (isConnecting) return;
+
+    // Only lock if not eager (manual interaction) to prevent double-clicks
+    // Eager conn is background, shouldn't block user if it stalls (though it typically resolves fast)
+    if (!eager) isConnecting = true;
+
     const provider = getPhantomProvider();
     if (provider) {
         try {
@@ -425,10 +433,14 @@ async function connectWallet(eager = false) {
         } catch (err) {
             if (!eager) {
                 console.error('[WALLET] Connect error:', err);
-                alert('Connection failed or rejected');
+                // alert('Connection failed or rejected'); 
+                // Alert annoyance - better to just log
             }
+        } finally {
+            if (!eager) isConnecting = false;
         }
     } else if (!eager) {
+        isConnecting = false;
         alert('Phantom wallet not found! Please install it.');
         window.open('https://phantom.app/', '_blank');
     }
