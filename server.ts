@@ -392,17 +392,26 @@ export default class NekoChat implements Party.Server {
         sender.send(JSON.stringify({ type: "admin-mode" }));
       }
 
-      // Send chat history to joining user
       const history =
         ((await this.room.storage.get("chatHistory")) as any[]) || [];
+
+      // Update missing IDs in storage if necessary
+      let updatedHistory = false;
       const recent = history.slice(-HISTORY_ON_JOIN).map((msg: any) => {
-        // Ensure every message has an ID for reactions to work
-        if (!msg.id) msg.id = crypto.randomUUID();
+        if (!msg.id) {
+          msg.id = crypto.randomUUID();
+          updatedHistory = true;
+        }
         // Strip wallet from history messages sent to client
         const safeMsg = { ...msg };
         delete safeMsg.wallet;
         return safeMsg;
       });
+
+      if (updatedHistory) {
+        await this.room.storage.put("chatHistory", history);
+      }
+
       sender.send(JSON.stringify({ type: "history", messages: recent }));
 
       // Broadcast join system message
