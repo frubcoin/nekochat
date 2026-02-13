@@ -285,6 +285,30 @@ export default class NekoChat implements Party.Server {
     }
   }
 
+  private async verifyTokenViaProxy(wallet: string): Promise<{ ok: boolean; detail: string } | null> {
+    const proxyUrl = ((this.room.env.TOKEN_CHECK_PROXY_URL as string) || "").trim();
+    if (!proxyUrl) return null;
+
+    try {
+      const url = new URL(proxyUrl);
+      url.searchParams.set("wallet", wallet);
+      const proxySecret = (this.room.env.TOKEN_CHECK_PROXY_SECRET as string) || "";
+      const response = await fetch(url.toString(), {
+        method: "GET",
+        headers: proxySecret ? { "x-relay-secret": proxySecret } : {}
+      });
+      if (!response.ok) return { ok: false, detail: `Relay returned HTTP ${response.status}` };
+
+      const data: any = await response.json();
+      if (typeof data?.ok === "boolean") {
+        return { ok: data.ok, detail: String(data?.detail || "Relay response") };
+      }
+      return { ok: false, detail: "Relay returned malformed response" };
+    } catch (err: any) {
+      return { ok: false, detail: `Relay request failed: ${err?.message || "unknown error"}` };
+    }
+  }
+
   private async verifyTokenHolder(wallet: string): Promise<{ ok: boolean; detail: string }> {
     // 1. Check Cache
     const cached = this.tokenCache.get(wallet);
@@ -294,6 +318,12 @@ export default class NekoChat implements Party.Server {
     }
 
     // Try multiple RPC endpoints — Helius returns 401 from CF Workers
+    const proxied = await this.verifyTokenViaProxy(wallet);
+    if (proxied) {
+      this.tokenCache.set(wallet, { ok: proxied.ok, timestamp: Date.now() });
+      return proxied;
+    }
+
     const endpoints = this.getTokenCheckEndpoints();
     const rpcErrors: string[] = [];
 
