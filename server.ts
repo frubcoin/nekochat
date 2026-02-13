@@ -876,6 +876,7 @@ export default class NekoChat implements Party.Server {
         username,
         color,
         text,
+        replyTo: parsed.replyTo || null,
         isAdmin,
         isMod,
         isOwner,

@@ -627,22 +627,24 @@ body {
 
 #typing-indicator {
   position: absolute;
-  bottom: 80px;
+  bottom: 90px;
   left: 24px;
-  z-index: 1000;
+  z-index: 2000;
   max-width: 90%;
   pointer-events: none;
-  padding: 4px 10px;
+  padding: 6px 12px;
   border-radius: 20px;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(20, 20, 20, 0.9);
+  border: 1px solid var(--border);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   pointer-events: none;
   transition: opacity 0.2s;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .msg-text a {
