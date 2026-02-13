@@ -662,14 +662,14 @@ body {
 #typing-indicator {
   position: absolute;
   bottom: 100%;
-  left: 24px;
-  margin-bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 6px;
   z-index: 2000;
   max-width: 90%;
-  pointer-events: none;
-  padding: 6px 12px;
+  padding: 6px 16px;
   border-radius: 20px;
-  background: rgba(20, 20, 20, 0.9);
+  background: var(--bg-surface);
   border: 1px solid var(--border);
   color: var(--text-muted);
   font-size: 12px;
@@ -679,7 +679,13 @@ body {
   text-overflow: ellipsis;
   pointer-events: none;
   transition: opacity 0.2s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  display: block;
+  /* Ensure visibility when not hidden */
+}
+
+#typing-indicator.hidden {
+  display: none !important;
 }
 
 .msg-text a {
