@@ -1714,7 +1714,49 @@ body {
 
 
 
+/* ═══ REACTIONS ═══ */
+.msg-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.reaction-pill {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.2s;
+  color: var(--text-muted);
+}
+
+.reaction-pill:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-secondary);
+}
+
+.reaction-pill.active {
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.reaction-emoji {
+  font-size: 14px;
+}
+
+.reaction-count {
+  font-weight: 600;
+}
+
 .reaction-picker-popover {
+
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
   border-radius: 12px;
   overflow: hidden;

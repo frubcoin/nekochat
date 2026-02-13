@@ -1451,7 +1451,7 @@ async function appendChatMessage(data, isHistory = false) {
     const replyBtn = document.createElement('button');
     replyBtn.className = 'msg-action-btn msg-action-reply';
     replyBtn.title = "Reply";
-    replyBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 0 1 5 5v2"/><path d="M3 10l6-6"/><path d="M3 10l6 6"/></svg>`;
+    replyBtn.innerHTML = `<img src="Comments.svg" alt="Reply" />`;
     replyBtn.onclick = (e) => {
         e.stopPropagation();
         initiateReply({ id: data.id, username: data.username, text: data.text });
