@@ -1511,19 +1511,8 @@ async function appendChatMessage(data, isHistory = false) {
 
     // Double click to reply
     div.addEventListener('dblclick', () => {
-        initiateReply(data);
+        initiateReply(data.id, data.username, data.text);
     });
-
-    // Hover Reply Button
-    const hoverReplyBtn = document.createElement('button');
-    hoverReplyBtn.className = 'msg-action-reply';
-    hoverReplyBtn.title = 'Reply';
-    hoverReplyBtn.innerHTML = '<img src="Comments.svg" alt="Reply">';
-    hoverReplyBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        initiateReply(data);
-    });
-    div.appendChild(hoverReplyBtn);
 
     DOM.chatMessages.appendChild(div);
 
@@ -1539,6 +1528,58 @@ async function appendChatMessage(data, isHistory = false) {
             scrollToBottom();
         }
     }
+}
+
+let activeReactionPicker = null;
+
+function initiateReaction(msgId, anchorBtn) {
+    if (activeReactionPicker) {
+        activeReactionPicker.remove();
+        activeReactionPicker = null;
+    }
+
+    const popover = document.createElement('div');
+    popover.className = 'reaction-picker-popover';
+
+    // Position it relative to the button
+    const rect = anchorBtn.getBoundingClientRect();
+    popover.style.position = 'fixed';
+    popover.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+    popover.style.right = (window.innerWidth - rect.right) + 'px';
+    popover.style.zIndex = '1000';
+
+    const pickerOptions = {
+        data: async () => {
+            const response = await fetch('https://cdn.jsdelivr.net/npm/@emoji-mart/data@latest/sets/14/native.json');
+            return response.json();
+        },
+        onEmojiSelect: (emoji) => {
+            sendReaction(msgId, emoji.native);
+            popover.remove();
+            activeReactionPicker = null;
+        },
+        theme: 'dark',
+        previewPosition: 'none',
+        skinTonePosition: 'none',
+        navPosition: 'bottom',
+        perLine: 7,
+        maxFrequentRows: 0,
+    };
+
+    const picker = new EmojiMart.Picker(pickerOptions);
+    popover.appendChild(picker);
+    document.body.appendChild(popover);
+    activeReactionPicker = popover;
+
+    // Close on click outside
+    const closeListener = (e) => {
+        if (!popover.contains(e.target) && e.target !== anchorBtn) {
+            popover.remove();
+            activeReactionPicker = null;
+            document.removeEventListener('mousedown', closeListener);
+        }
+    };
+    setTimeout(() => document.addEventListener('mousedown', closeListener), 0);
 }
 
 function appendSystemMessage(data) {

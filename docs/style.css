@@ -1691,12 +1691,52 @@ body {
   justify-content: center;
   border-radius: 4px;
   color: var(--text-muted);
+  transition: all 0.2s;
 }
 
 .msg-action-btn:hover {
   background: var(--bg-hover);
   color: var(--text);
 }
+
+.msg-action-btn img,
+.msg-action-btn svg {
+  width: 16px;
+  height: 16px;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.msg-action-btn:hover img,
+.msg-action-btn:hover svg {
+  opacity: 1;
+}
+
+/* Redundant button removed in JS, but keeping styles clean */
+.msg-action-reply {
+  display: none;
+}
+
+.reaction-picker-popover {
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  animation: popIn 0.2s ease-out;
+}
+
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
 
 .msg-action-btn img {
   width: 16px;
