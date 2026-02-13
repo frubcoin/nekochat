@@ -827,7 +827,7 @@ body {
   font-size: 20px;
   cursor: pointer;
   padding: 4px;
-  border-radius: 4px;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
