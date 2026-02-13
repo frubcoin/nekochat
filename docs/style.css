@@ -1668,10 +1668,11 @@ body {
 /* Fix SVG alignment */
 /* ═══ MESSAGE ACTIONS (Hover Buttons) ═══ */
 .msg-actions {
-  display: inline-flex;
+  float: right;
+  display: flex;
   gap: 2px;
-  vertical-align: middle;
-  margin-right: 6px;
+  margin-left: 8px;
+  margin-right: 0;
   opacity: 0;
   transition: opacity 0.2s;
   pointer-events: none;

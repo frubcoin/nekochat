@@ -1468,7 +1468,7 @@ async function appendChatMessage(data, isHistory = false) {
     const unescapedText = data.text.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
     const msgTextEl = div.querySelector('.msg-text');
     msgTextEl.innerHTML = linkifyText(unescapedText);
-    msgTextEl.prepend(actionsDiv);
+    msgTextEl.append(actionsDiv);
 
     // Reactions Container (ensure it's always created so we can target it easily)
     const reactionsContainer = document.createElement('div');
