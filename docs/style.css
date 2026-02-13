@@ -514,16 +514,18 @@ body {
 
 @keyframes highlight-msg {
   0% {
-    background: rgba(var(--accent-rgb), 0.2);
+    background: rgba(var(--accent-rgb), 0.3);
   }
 
+  /* increased from 0.2 */
   100% {
     background: transparent;
   }
 }
 
 .highlight {
-  animation: highlight-msg 2s ease-out;
+  animation: highlight-msg 1.5s ease-out;
+  /* faster */
 }
 
 /* ═══ MAIN LAYOUT ═══ */
