@@ -829,25 +829,31 @@ function initCustomUI() {
     // Scaling
     const scaleSlider = document.getElementById('scale-slider');
     const btnZoomReset = document.getElementById('btn-zoom-reset');
+    const isMobileViewport = () => window.matchMedia('(max-width: 768px)').matches;
 
-    function updateScale(val) {
+    function updateScale(val, persist = true) {
         let scale = parseFloat(val);
         scale = Math.max(0.5, Math.min(2.0, scale));
+        if (isMobileViewport()) scale = 1;
         document.documentElement.style.setProperty('--ui-scale', scale);
-        localStorage.setItem('ui_scale', scale);
+        if (persist) localStorage.setItem('ui_scale', scale);
         if (scaleSlider) scaleSlider.value = scale;
     }
 
     // Init
     const savedScale = localStorage.getItem('ui_scale') || '1';
-    updateScale(savedScale);
+    updateScale(savedScale, false);
 
     if (scaleSlider) {
-        scaleSlider.addEventListener('input', (e) => updateScale(e.target.value));
+        scaleSlider.addEventListener('input', (e) => updateScale(e.target.value, true));
     }
     if (btnZoomReset) {
-        btnZoomReset.addEventListener('click', () => updateScale(1.0));
+        btnZoomReset.addEventListener('click', () => updateScale(1.0, true));
     }
+
+    window.addEventListener('resize', () => {
+        if (isMobileViewport()) updateScale(1.0, false);
+    });
 }
 
 if (document.readyState === 'loading') {

@@ -2225,3 +2225,26 @@ input[type=range].scale-slider {
   animation: none;
 }
 
+/* Mobile layout fix: remove zoom side effects and guarantee message scrolling. */
+@media (max-width: 768px) {
+  #main-layout {
+    height: 100%;
+    min-height: 0;
+  }
+
+  #chat-area {
+    min-height: 0;
+    height: 100%;
+    zoom: 1 !important;
+  }
+
+  #chat-messages {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+  }
+}
+

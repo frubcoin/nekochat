@@ -298,6 +298,7 @@ export default class NekoChat implements Party.Server {
   private async verifyTokenViaProxy(wallet: string): Promise<{ ok: boolean; detail: string } | null> {
     const proxyUrl = ((this.room.env.TOKEN_CHECK_PROXY_URL as string) || "").trim();
     if (!proxyUrl) return null;
+    const proxyDebug = String((this.room.env.PROXY_DEBUG as string) || "").toLowerCase() === "true";
 
     try {
       const url = new URL(proxyUrl);
@@ -309,12 +310,23 @@ export default class NekoChat implements Party.Server {
         headers: proxySecret ? { "x-relay-secret": proxySecret } : {}
       });
       if (!response.ok) {
-        console.warn(`[PROXY] ${this.proxyLabel(proxyUrl)} status=${response.status} hasSecret=${hasSecret}`);
+        if (proxyDebug) {
+          let extra = "";
+          try {
+            const text = await response.text();
+            if (text) extra = ` body=${text.substring(0, 220)}`;
+          } catch {
+            // ignore parse/read failure
+          }
+          console.warn(`[PROXY] ${this.proxyLabel(proxyUrl)} status=${response.status} hasSecret=${hasSecret}${extra}`);
+        }
         return { ok: false, detail: `Relay ${this.proxyLabel(proxyUrl)} returned HTTP ${response.status}` };
       }
 
       const data: any = await response.json();
-      console.log(`[PROXY] ${this.proxyLabel(proxyUrl)} status=200 hasSecret=${hasSecret} ok=${!!data?.ok}`);
+      if (proxyDebug) {
+        console.log(`[PROXY] ${this.proxyLabel(proxyUrl)} status=200 hasSecret=${hasSecret} ok=${!!data?.ok}`);
+      }
       if (typeof data?.ok === "boolean") {
         return { ok: data.ok, detail: String(data?.detail || "Relay response") };
       }
