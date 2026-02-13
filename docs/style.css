@@ -402,6 +402,19 @@ body {
   align-items: center;
 }
 
+.login-wordmark {
+  font-family: var(--font-wordmark);
+  font-size: 80px;
+  color: var(--accent);
+  line-height: 1;
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
 .header-wordmark {
   font-family: var(--font-wordmark);
   font-size: 32px;
@@ -409,6 +422,15 @@ body {
   letter-spacing: 1px;
   font-weight: 400;
   line-height: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wordmark-icon {
+  height: 0.7em;
+  width: auto;
+  fill: currentColor;
 }
 
 .header-right {
