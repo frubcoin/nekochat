@@ -1609,9 +1609,8 @@ body {
   z-index: 20;
   width: 100%;
   max-width: 900px;
-  margin: 0 auto 16px;
+  /* margin: 0 auto 16px; */
   overflow: visible;
-  /* Allow pickers to show */
   z-index: 2000;
 }
 
