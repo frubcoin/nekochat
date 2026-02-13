@@ -1489,54 +1489,55 @@ async function appendChatMessage(data, isHistory = false) {
 
     const unescapedText = data.text.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
     const msgTextEl = div.querySelector('.msg-text');
-msgTextEl.innerHTML = linkifyText(unescapedText);
+    msgTextEl.innerHTML = linkifyText(unescapedText);
 
-const urls = unescapedText.match(/(https?:\/\/[^\s]+)/gi) || [];
-const canEmbedUrls = !!(data.isOwner || data.isAdmin || data.isMod || data.canEmbedUrls);
-if (canEmbedUrls && urls.length > 0) {
-    const embed = getEmbedUrl(urls[0]);
-    if (embed) {
-        const wrap = document.createElement('div');
-        wrap.className = 'msg-embed';
-        if (embed.type === 'iframe') {
-            wrap.innerHTML = `<iframe src="${embed.src}" loading="lazy" allowfullscreen referrerpolicy="no-referrer"></iframe>`;
-        } else if (embed.type === 'img') {
-            wrap.innerHTML = `<img src="${embed.src}" alt="embedded content" loading="lazy">`;
-        } else if (embed.type === 'video') {
-            wrap.innerHTML = `<video src="${embed.src}" controls preload="metadata"></video>`;
+    const urls = unescapedText.match(/(https?:\/\/[^\s]+)/gi) || [];
+    const canEmbedUrls = !!(data.isOwner || data.isAdmin || data.isMod || data.canEmbedUrls);
+    if (canEmbedUrls && urls.length > 0) {
+        const embed = getEmbedUrl(urls[0]);
+        if (embed) {
+            const wrap = document.createElement('div');
+            wrap.className = 'msg-embed';
+            if (embed.type === 'iframe') {
+                wrap.innerHTML = `<iframe src="${embed.src}" loading="lazy" allowfullscreen referrerpolicy="no-referrer"></iframe>`;
+            } else if (embed.type === 'img') {
+                wrap.innerHTML = `<img src="${embed.src}" alt="embedded content" loading="lazy">`;
+            } else if (embed.type === 'video') {
+                wrap.innerHTML = `<video src="${embed.src}" controls preload="metadata"></video>`;
+            }
+            div.appendChild(wrap);
         }
-        div.appendChild(wrap);
     }
-}
 
-// Double click to reply
-div.addEventListener('dblclick', () => {
-    initiateReply(data);
-});
+    // Double click to reply
+    div.addEventListener('dblclick', () => {
+        initiateReply(data);
+    });
 
-// Hover Reply Button
-const hoverReplyBtn = document.createElement('button');
-hoverReplyBtn.className = 'msg-action-reply';
-hoverReplyBtn.title = 'Reply';
-hoverReplyBtn.innerHTML = '<img src="Comments.svg" alt="Reply">';
-hoverReplyBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    initiateReply(data);
-});
-div.appendChild(hoverReplyBtn);
+    // Hover Reply Button
+    const hoverReplyBtn = document.createElement('button');
+    hoverReplyBtn.className = 'msg-action-reply';
+    hoverReplyBtn.title = 'Reply';
+    hoverReplyBtn.innerHTML = '<img src="Comments.svg" alt="Reply">';
+    hoverReplyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        initiateReply(data);
+    });
+    div.appendChild(hoverReplyBtn);
 
-DOM.chatMessages.appendChild(div);
+    DOM.chatMessages.appendChild(div);
 
-// Auto-Translation: Skip if system message or if it's from history
-// User requested "force translation on any non native language".
-if (!isHistory && unescapedText && userLanguage) {
-    const result = await translateText(unescapedText, userLanguage);
-    if (result && result.trim().toLowerCase() !== unescapedText.trim().toLowerCase()) {
-        const translationDiv = document.createElement('div');
-        translationDiv.className = 'msg-translation';
-        translationDiv.textContent = `🌐 ${result}`;
-        div.appendChild(translationDiv);
-        scrollToBottom();
+    // Auto-Translation: Skip if system message or if it's from history
+    // User requested "force translation on any non native language".
+    if (!isHistory && unescapedText && userLanguage) {
+        const result = await translateText(unescapedText, userLanguage);
+        if (result && result.trim().toLowerCase() !== unescapedText.trim().toLowerCase()) {
+            const translationDiv = document.createElement('div');
+            translationDiv.className = 'msg-translation';
+            translationDiv.textContent = `🌐 ${result}`;
+            div.appendChild(translationDiv);
+            scrollToBottom();
+        }
     }
 }
 
