@@ -322,7 +322,6 @@ body {
   background: var(--bg-hover);
 }
 
-.btn-icon:active {}
 
 .login-hint {
   margin-top: 24px;

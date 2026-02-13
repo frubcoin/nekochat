@@ -1644,7 +1644,6 @@ function renderReactionsInto(container, msgId, reactions) {
         sendReaction(msgId, emoji);
     };
     container.appendChild(pill);
-});
 }
 
 
