@@ -1175,6 +1175,14 @@ body {
   border-color: var(--border-light);
 }
 
+.sidebar-info-wrap {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  padding-bottom: 10px;
+  background: linear-gradient(to bottom, var(--bg-elevated), rgba(22, 22, 22, 0.92) 75%, rgba(22, 22, 22, 0));
+}
+
 #info-overlay {
   position: fixed;
   inset: 0;

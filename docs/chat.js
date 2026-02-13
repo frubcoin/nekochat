@@ -309,6 +309,19 @@ function closeInfoOverlay() {
     DOM.infoOverlay.classList.add('hidden');
 }
 
+if (!DOM.btnInfo && DOM.sidebar) {
+    const wrap = document.createElement('div');
+    wrap.className = 'sidebar-info-wrap';
+    const button = document.createElement('button');
+    button.id = 'btn-info';
+    button.className = 'btn-info-panel';
+    button.type = 'button';
+    button.textContent = 'Info & Security';
+    wrap.appendChild(button);
+    DOM.sidebar.insertBefore(wrap, DOM.sidebar.firstChild);
+    DOM.btnInfo = button;
+}
+
 if (DOM.btnInfo) {
     DOM.btnInfo.addEventListener('click', (e) => {
         e.preventDefault();
