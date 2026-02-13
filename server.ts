@@ -128,26 +128,31 @@ export default class NekoChat implements Party.Server {
 
   private async translateServerSide(text: string, targetLang: string): Promise<string | null> {
     const safeTarget = (targetLang || "en").toLowerCase();
-    if (!text || text.length > 500) return null; // Logic: 10k neurons/day, keep chunks small-ish
+    if (!/^[a-z]{2}(?:-[a-z]{2})?$/i.test(safeTarget)) return null;
+    if (!text || text.length > 1000) return null;
+
+    const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(safeTarget)}&dt=t&q=${encodeURIComponent(text)}`;
 
     try {
-      // Cloudflare Workers AI Fallback (@cf/meta/m2m100-1.2b)
-      // This is free (10k neurons/day) and runs on the edge.
-      const ai = (this.room.env as any).AI;
-      if (!ai) return null;
-
-      const response = await ai.run('@cf/meta/m2m100-1.2b', {
-        text: text,
-        target_lang: safeTarget
+      const res = await fetch(url, {
+        headers: { "Accept": "application/json" }
       });
+      if (!res.ok) return null;
 
-      if (response && response.translated_text) {
-        return response.translated_text;
-      }
+      const data = await res.json() as any;
+      if (!Array.isArray(data) || !Array.isArray(data[0])) return null;
+
+      const translated = data[0]
+        .filter((chunk: any) => Array.isArray(chunk) && typeof chunk[0] === "string")
+        .map((chunk: any) => chunk[0])
+        .join("")
+        .trim();
+
+      return translated || null;
     } catch (err) {
-      console.warn("[TRANSLATE] Cloudflare AI failed:", err);
+      console.warn("[TRANSLATE] Server-side translation failed:", err);
+      return null;
     }
-    return null;
   }
 
   private async getAllAdminWallets(): Promise<string[]> {

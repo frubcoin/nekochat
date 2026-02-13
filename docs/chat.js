@@ -16,10 +16,6 @@ const ROOMS = [
     { id: 'holders-lounge', name: '$UwU', icon: '◆', gated: true },
 ];
 
-let pendingTranslations = new Map(); // text -> resolve function
-
-let currentUsername = '';
-let currentWallet = null;
 let currentRoom = 'main-lobby';
 let hasToken = false;
 let currentSignature = null;
@@ -31,6 +27,7 @@ function getWsUrl(roomId) {
 }
 
 let ws;
+let reconnectTimer = null;
 let isSwitchingRoom = false;
 let typingTimeout = null;
 let isTyping = false;
@@ -157,14 +154,6 @@ function connectWebSocket(roomId) {
                 if (currentUsername) showGameOverlay('series-end', data);
                 break;
 
-            case 'translation-result':
-                const resolve = pendingTranslations.get(data.originalText);
-                if (resolve) {
-                    resolve(data.translatedText);
-                    pendingTranslations.delete(data.originalText);
-                }
-                break;
-
         }
     });
 
@@ -219,7 +208,7 @@ const DOM = {
 };
 
 let userLanguage = 'en';
-// currentUsername is defined at the top
+let currentUsername = '';
 try {
     const savedName = localStorage.getItem('chat_username') || '';
     if (savedName && DOM.usernameInput) {
@@ -298,11 +287,7 @@ function renderRoomList() {
 
     ROOMS.forEach(room => {
         const li = document.createElement('li');
-        // 'currentRoom' is global, make sure it is defined at the top of the file
-        li.className = 'room-item active';
-        if (room.id !== currentRoom) {
-            li.className = 'room-item';
-        }
+        li.className = 'room-item' + (room.id === currentRoom ? ' active' : '');
 
         const isLocked = room.gated && !hasToken;
         li.innerHTML = `
@@ -1112,31 +1097,16 @@ function formatTime(ts) {
 }
 
 async function getGoogleAiLanguageDetector() {
-    console.log('[AI] Checking Language Detector support...', window.ai?.languageDetector);
-
     if (!window.ai?.languageDetector?.capabilities || !window.ai?.languageDetector?.create) {
-        console.warn('[AI] window.ai.languageDetector APIs are missing.');
         updateAIStatus('unavailable');
         return null;
     }
 
-    try {
-        const capabilities = await window.ai.languageDetector.capabilities();
-        console.log('[AI] Language Detector Capabilities:', capabilities);
-
-        if (!capabilities || capabilities.available === 'no') {
-            console.warn('[AI] Language Detector not available (capabilities.available = no)');
-            updateAIStatus('unavailable');
-            return null;
-        }
-    } catch (err) {
-        console.error('[AI] Error checking capabilities:', err);
-        updateAIStatus('unavailable');
-        return null;
-    }
-
-    // re-fetch capabilities to be safe for create flow logic below
     const capabilities = await window.ai.languageDetector.capabilities();
+    if (!capabilities || capabilities.available === 'no') {
+        updateAIStatus('unavailable');
+        return null;
+    }
 
     let detector;
     try {
@@ -1268,78 +1238,7 @@ async function translateText(text, targetLang) {
         }
     }
 
-    // --- TIER 3: Cloudflare Workers AI Fallback (PartyKit) ---
-    console.log('[TRANSLATION] Falling back to server-side AI...');
-    try {
-        return new Promise((resolve) => {
-            const timeout = setTimeout(() => {
-                pendingTranslations.delete(text);
-                resolve(null);
-            }, 5000); // 5s timeout
-
-            pendingTranslations.set(text, (result) => {
-                clearTimeout(timeout);
-                resolve(result);
-            });
-
-            // Send request to server
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({
-                    type: 'translate',
-                    text: text,
-                    targetLang: targetLang
-                }));
-            } else {
-                resolve(null);
-            }
-        });
-    } catch (err) {
-        console.warn('[TRANSLATION] Server-side fallback failed:', err);
-    }
-
     return null;
-}
-
-// ═══ AI STATUS HELPER ═══
-function updateAIStatus(state, msg = '') {
-    const el = document.getElementById('ai-status');
-    if (!el) return;
-
-    el.className = ''; // Reset classes
-    el.innerHTML = ''; // Clear content
-
-    if (state === 'hidden') {
-        el.classList.add('hidden');
-        return;
-    }
-
-    el.classList.remove('hidden');
-
-    if (state === 'downloading') {
-        el.classList.add('status-downloading');
-        el.innerHTML = `<span>⬇️ ${msg}</span>`;
-    } else if (state === 'ready') {
-        el.classList.add('status-ready');
-        el.innerHTML = `<span>✨ AI Ready</span>`;
-        // Hide after 3 seconds
-        setTimeout(() => {
-            if (el.classList.contains('status-ready')) {
-                el.classList.add('hidden');
-            }
-        }, 3000);
-    } else if (state === 'unavailable') {
-        el.classList.add('status-unavailable');
-        el.innerHTML = `
-            <span>⚠️ AI Unavailable</span>
-            <div class="ai-tooltip">
-                <strong>Enable AI Features:</strong><br/>
-                Go to <code>chrome://flags</code> and enable:<br/>
-                • Prompt API for Gemini Nano<br/>
-                • Language Detection API<br/>
-                • Translation API
-            </div>
-        `;
-    }
 }
 
 async function appendChatMessage(data, isHistory = false) {
