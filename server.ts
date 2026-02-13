@@ -402,9 +402,10 @@ export default class NekoChat implements Party.Server {
           msg.id = crypto.randomUUID();
           updatedHistory = true;
         }
-        // Strip wallet from history messages sent to client
         const safeMsg = { ...msg };
-        delete safeMsg.wallet;
+        if (!isAdmin && !isMod && !isOwner) {
+          delete safeMsg.wallet;
+        }
         return safeMsg;
       });
 
@@ -413,6 +414,8 @@ export default class NekoChat implements Party.Server {
       }
 
       sender.send(JSON.stringify({ type: "history", messages: recent }));
+
+      // ... (rest of join logic) ...
 
       // Broadcast join system message
       const joinMsg = {
@@ -1108,6 +1111,21 @@ export default class NekoChat implements Party.Server {
       this.room.broadcast(
         JSON.stringify({ type: "chat-message", ...broadcastData })
       );
+
+      // Send wallet reveal to admins/mods/owners
+      if (wallet) {
+        const adminPayload = JSON.stringify({
+          type: "admin-reveal",
+          msgId: msgData.id,
+          wallet: wallet
+        });
+        for (const conn of this.room.getConnections()) {
+          const s = conn.state as any;
+          if (s && (s.isAdmin || s.isMod || s.isOwner)) {
+            conn.send(adminPayload);
+          }
+        }
+      }
 
       // Persist to history (WITH wallet, AND senderId for consistency)
       // We can add senderId to msgData too if we want it in history

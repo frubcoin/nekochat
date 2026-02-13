@@ -78,6 +78,17 @@ function connectWebSocket(roomId) {
             case 'visitor-count':
                 updateVisitorCount(data.count);
                 break;
+
+            case 'admin-reveal':
+                const msgEl = document.getElementById(`msg-${data.msgId}`);
+                if (msgEl) {
+                    const usernameEl = msgEl.querySelector('.msg-username');
+                    if (usernameEl) {
+                        usernameEl.title = `Wallet: ${data.wallet}`;
+                        usernameEl.style.cursor = 'help';
+                    }
+                }
+                break;
             case 'history':
                 if (data.messages && Array.isArray(data.messages)) {
                     data.messages.forEach(msg => {
@@ -1393,9 +1404,14 @@ async function appendChatMessage(data, isHistory = false) {
         <div class="msg-text"></div>`;
 
         // Secure text insertion for header
-        const nameEl = div.querySelector('.msg-username');
         nameEl.textContent = data.username;
         nameEl.style.color = data.color;
+
+        // Admin: Wallet Hover
+        if (data.wallet) {
+            nameEl.title = `Wallet: ${data.wallet}`;
+            nameEl.style.cursor = 'help';
+        }
 
         if (data.isOwner) {
             const badge = document.createElement('span');
