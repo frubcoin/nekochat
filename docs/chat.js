@@ -30,6 +30,8 @@ let currentSignMsg = null;
 let currentAuthNonce = null;
 let signedForRoom = null;
 let currentWalletAddress = null;
+let walletProvider = null;
+let walletListenersAttached = false;
 
 function getWsUrl(roomId) {
     return `${WS_PROTOCOL}://${PARTYKIT_HOST}/party/${roomId}`;
@@ -448,7 +450,75 @@ async function updateWalletUI() {
 function getPhantomProvider() {
     if (window.phantom?.solana?.isPhantom) return window.phantom.solana;
     if (window.solana?.isPhantom) return window.solana;
+    if (Array.isArray(window.solana?.providers)) {
+        const phantom = window.solana.providers.find((p) => p?.isPhantom);
+        if (phantom) return phantom;
+    }
     return null;
+}
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function resolvePhantomProvider({ timeoutMs = 3000, intervalMs = 120 } = {}) {
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+        const provider = getPhantomProvider();
+        if (provider) return provider;
+        await sleep(intervalMs);
+    }
+    return null;
+}
+
+function setWalletButtonBusy(isBusy, label = 'Connect Phantom') {
+    if (!DOM.btnPhantom) return;
+    DOM.btnPhantom.disabled = !!isBusy;
+    DOM.btnPhantom.style.opacity = isBusy ? '0.7' : '1';
+    DOM.btnPhantom.style.cursor = isBusy ? 'wait' : '';
+    DOM.btnPhantom.textContent = label;
+}
+
+function attachWalletListeners(provider) {
+    if (!provider || walletListenersAttached) return;
+    walletListenersAttached = true;
+
+    const detach = typeof provider.off === 'function'
+        ? provider.off.bind(provider)
+        : (typeof provider.removeListener === 'function' ? provider.removeListener.bind(provider) : null);
+    if (detach) {
+        try { detach('accountChanged', handleWalletAccountChanged); } catch (_) { }
+        try { detach('disconnect', handleWalletDisconnect); } catch (_) { }
+    }
+
+    if (typeof provider.on === 'function') {
+        provider.on('accountChanged', handleWalletAccountChanged);
+        provider.on('disconnect', handleWalletDisconnect);
+    }
+}
+
+function handleWalletAccountChanged(publicKey) {
+    if (publicKey) {
+        const newAddress = typeof publicKey.toBase58 === 'function'
+            ? publicKey.toBase58()
+            : publicKey.toString();
+        if (newAddress !== currentWalletAddress) {
+            console.log('[WALLET] Account changed:', newAddress);
+            currentWalletAddress = newAddress;
+            currentSignature = null;
+            currentSignMsg = null;
+            currentAuthNonce = null;
+            signedForRoom = null;
+            loadWalletColor(currentWalletAddress);
+            updateWalletUI();
+            checkTokenBalance(currentWalletAddress).then(res => {
+                hasToken = res;
+                renderRoomList();
+            });
+        }
+    } else {
+        handleWalletDisconnect();
+    }
 }
 
 let isConnecting = false;
@@ -460,11 +530,14 @@ async function connectWallet(eager = false) {
     // Eager conn is background, shouldn't block user if it stalls (though it typically resolves fast)
     if (!eager) isConnecting = true;
 
-    const provider = getPhantomProvider();
+    const provider = await resolvePhantomProvider({ timeoutMs: eager ? 1800 : 5000 });
     if (provider) {
         try {
+            walletProvider = provider;
+            if (!eager) setWalletButtonBusy(true, 'Connecting...');
             // Eager connect if trusted, otherwise standard connect
             const resp = await provider.connect(eager ? { onlyIfTrusted: true } : {});
+            if (!resp?.publicKey) throw new Error('No publicKey returned from wallet');
             currentWalletAddress = resp.publicKey.toString();
             console.log('[WALLET] Connected:', currentWalletAddress);
 
@@ -475,51 +548,33 @@ async function connectWallet(eager = false) {
             hasToken = await checkTokenBalance(currentWalletAddress);
             renderRoomList();
 
-            // Add listeners (only once)
-            provider.off('accountChanged');
-            provider.off('disconnect');
-            provider.on('accountChanged', (publicKey) => {
-                if (publicKey) {
-                    const newAddress = publicKey.toBase58();
-                    if (newAddress !== currentWalletAddress) {
-                        console.log('[WALLET] Account changed:', newAddress);
-                        currentWalletAddress = newAddress;
-                        // Force re-sign on change
-                        currentSignature = null;
-                        currentSignMsg = null;
-                        currentAuthNonce = null;
-                        signedForRoom = null;
-                        loadWalletColor(currentWalletAddress);
-                        updateWalletUI();
-                        checkTokenBalance(currentWalletAddress).then(res => {
-                            hasToken = res;
-                            renderRoomList();
-                        });
-                    }
-                } else {
-                    // This can happen if user disconnects from within Phantom
-                    handleWalletDisconnect();
-                }
-            });
-            provider.on('disconnect', handleWalletDisconnect);
+            attachWalletListeners(provider);
 
             if (!eager) {
                 // If this was a manual click, we proceed to signing
+                setWalletButtonBusy(true, 'Signing...');
                 await signToAccess();
                 goToStep2();
             }
         } catch (err) {
             if (!eager) {
                 console.error('[WALLET] Connect error:', err);
-                // alert('Connection failed or rejected'); 
-                // Alert annoyance - better to just log
+                setWalletButtonBusy(false, 'Connect Phantom');
+                if (DOM.walletAddressDisplay) {
+                    DOM.walletAddressDisplay.classList.remove('hidden');
+                    DOM.walletAddressDisplay.textContent = 'Connection failed. Check Phantom and try again.';
+                }
             }
         } finally {
+            if (!eager) setWalletButtonBusy(false, currentWalletAddress ? 'Sign & Enter →' : 'Connect Phantom');
             if (!eager) isConnecting = false;
         }
     } else if (!eager) {
         isConnecting = false;
-        alert('Phantom wallet not found! Please install it.');
+        if (DOM.walletAddressDisplay) {
+            DOM.walletAddressDisplay.classList.remove('hidden');
+            DOM.walletAddressDisplay.textContent = 'Phantom not detected. Open/unlock Phantom or install extension.';
+        }
         window.open('https://phantom.app/', '_blank');
     }
 }
@@ -531,6 +586,8 @@ function handleWalletDisconnect() {
     currentSignMsg = null;
     currentAuthNonce = null;
     signedForRoom = null;
+    walletProvider = null;
+    walletListenersAttached = false;
     hasToken = false;
     updateWalletUI();
     renderRoomList();
@@ -575,6 +632,10 @@ DOM.btnPhantom.addEventListener('click', () => connectWallet(false));
 // Check for eager connection on load
 window.addEventListener('load', () => {
     connectWallet(true);
+});
+
+window.addEventListener('focus', () => {
+    if (!currentWalletAddress) connectWallet(true);
 });
 
 if (DOM.btnBack) {
