@@ -804,9 +804,63 @@ export default class NekoChat implements Party.Server {
         }
 
         if (command === "/clear") {
-          await this.room.storage.delete("chatHistory");
-          this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
-          sender.send(JSON.stringify({ type: "system-message", text: "🧼 Chat history cleared." }));
+          const arg = parts[1];
+          let history = ((await this.room.storage.get("chatHistory")) as any[]) || [];
+
+          // 1. /clear (No args) -> Clear all
+          if (!arg) {
+            await this.room.storage.delete("chatHistory");
+            this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
+            sender.send(JSON.stringify({ type: "system-message", text: "🧼 Chat history cleared." }));
+            return;
+          }
+
+          // 2. /clear <number> -> Clear last N messages
+          if (/^\d+$/.test(arg)) {
+            const count = parseInt(arg, 10);
+            if (count > 0) {
+              // Remove the last N messages
+              // history is [oldest, ..., newest]
+              // we want to remove from the end
+              if (count >= history.length) {
+                history = [];
+              } else {
+                history = history.slice(0, history.length - count);
+              }
+
+              await this.room.storage.put("chatHistory", history);
+
+              // Refresh clients: Clear then send remaining history
+              this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
+              // Send history in a slightly delayed distinct message or same tick
+              // "history" message expects { type: "history", messages: [...] }
+              this.room.broadcast(JSON.stringify({ type: "history", messages: history }));
+
+              sender.send(JSON.stringify({ type: "system-message", text: `🧼 Cleared last ${count} messages.` }));
+              return;
+            }
+          }
+
+          // 3. /clear <wallet> -> Clear messages from specific wallet
+          // We assume arg is a wallet address (string)
+          if (arg.length > 20) { // Basic length check for wallet/base58
+            const targetWallet = arg;
+            const initialCount = history.length;
+            // Filter out messages from this wallet
+            history = history.filter((msg: any) => msg.wallet !== targetWallet);
+
+            if (history.length !== initialCount) {
+              await this.room.storage.put("chatHistory", history);
+              this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
+              this.room.broadcast(JSON.stringify({ type: "history", messages: history }));
+              sender.send(JSON.stringify({ type: "system-message", text: `🧼 Cleared messages from ${targetWallet}.` }));
+            } else {
+              sender.send(JSON.stringify({ type: "system-message", text: `⚠️ No messages found from ${targetWallet} (or messages didn't have wallet attached).` }));
+            }
+            return;
+          }
+
+          sender.send(JSON.stringify({ type: "system-message", text: "Usage: /clear, /clear <number>, or /clear <wallet>" }));
           return;
         }
 
@@ -877,6 +931,7 @@ export default class NekoChat implements Party.Server {
         color,
         text,
         replyTo: parsed.replyTo || null,
+        wallet,
         isAdmin,
         isMod,
         isOwner,
