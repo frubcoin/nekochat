@@ -1746,5 +1746,25 @@ function cancelReply() {
     if (replyPreview) replyPreview.textContent = '';
 }
 
+// ═══ SCROLL CONTROLS ═══
+const btnScrollTop = document.getElementById('btn-scroll-top');
+const btnScrollBottom = document.getElementById('btn-scroll-bottom');
+
+if (btnScrollTop) {
+    btnScrollTop.addEventListener('click', () => {
+        if (DOM.chatMessages) {
+            DOM.chatMessages.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
+}
+
+if (btnScrollBottom) {
+    btnScrollBottom.addEventListener('click', () => {
+        if (DOM.chatMessages) {
+            DOM.chatMessages.scrollTo({ top: DOM.chatMessages.scrollHeight, behavior: 'smooth' });
+        }
+    });
+}
+
 // Start connection after DOM and listeners are ready
 connectWebSocket('main-lobby');
