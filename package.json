@@ -2,13 +2,13 @@
   "name": "nekochat",
   "version": "1.0.0",
   "description": "A retro Nekoweb/Geocities themed chat site — powered by PartyKit",
-  "main": "server.js",
+  "main": "server.ts",
   "scripts": {
     "dev": "partykit dev",
     "deploy": "partykit deploy"
   },
   "devDependencies": {
-    "partykit": "latest"
+    "partykit": "0.0.115"
   },
   "dependencies": {}
 }

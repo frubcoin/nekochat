@@ -27,10 +27,16 @@ let currentRoom = 'main-lobby';
 let hasToken = false;
 let currentSignature = null;
 let currentSignMsg = null;
+let currentAuthNonce = null;
+let signedForRoom = null;
 let currentWalletAddress = null;
 
 function getWsUrl(roomId) {
     return `${WS_PROTOCOL}://${PARTYKIT_HOST}/party/${roomId}`;
+}
+
+function getHttpBase(roomId) {
+    return `${HTTP_PROTOCOL}://${PARTYKIT_HOST}/party/${roomId}`;
 }
 
 let ws;
@@ -45,17 +51,24 @@ function connectWebSocket(roomId) {
     ws = new WebSocket(url);
     const thisWs = ws; // Capture reference to detect stale handlers
 
-    ws.addEventListener('open', () => {
+    ws.addEventListener('open', async () => {
         console.log(`connected to ${roomId}`);
         isSwitchingRoom = false;
         if (currentUsername) {
+            if (currentWalletAddress) {
+                const ok = await ensureSignedForRoom(roomId);
+                if (!ok) {
+                    appendSystemMessage({ text: 'Sign-in required. Please reconnect wallet and sign again.' });
+                    return;
+                }
+            }
             const joinMsg = {
                 type: 'join',
                 username: currentUsername,
                 wallet: currentWalletAddress,
                 signature: currentSignature,
                 signMessage: currentSignMsg,
-                hasToken: hasToken,
+                authNonce: currentAuthNonce,
                 color: userColor
             };
             ws.send(JSON.stringify(joinMsg));
@@ -147,6 +160,12 @@ function connectWebSocket(roomId) {
                 break;
             case 'join-error':
                 console.error('[JOIN-ERROR]', data.reason);
+                if (typeof data.reason === 'string' && /challenge|signature/i.test(data.reason)) {
+                    currentSignature = null;
+                    currentSignMsg = null;
+                    currentAuthNonce = null;
+                    signedForRoom = null;
+                }
                 isSwitchingRoom = false; // Reset so we can switch back
                 if (DOM.loginOverlay.classList.contains('hidden')) {
                     const errorMsg = data.reason || 'Cannot access this room.';
@@ -304,7 +323,7 @@ async function checkTokenBalance(walletAddress) {
     if (!walletAddress) return false;
     try {
         // Use server proxy instead of direct Helius call
-        const response = await fetch(`${HTTP_PROTOCOL}://${PARTYKIT_HOST}/party/check-token?wallet=${walletAddress}`);
+        const response = await fetch(`${getHttpBase(currentRoom)}/check-token?wallet=${walletAddress}`);
         if (!response.ok) return false;
 
         const data = await response.json();
@@ -363,11 +382,11 @@ async function switchRoom(roomId) {
     if (isSwitchingRoom) return; // Prevent re-entry
     isSwitchingRoom = true;
 
-    // Ensure we have a signature for the current wallet before switching rooms
-    if (currentWalletAddress && !currentSignature) {
+    // Ensure we have a valid room-specific signature before switching rooms
+    if (currentWalletAddress) {
         try {
-            console.log('[ROOM-SWITCH] Signature missing for current wallet, requesting...');
-            await signToAccess();
+            console.log('[ROOM-SWITCH] Requesting room auth signature...');
+            await signToAccess(roomId);
         } catch (err) {
             console.warn('[ROOM-SWITCH] Signature rejected, cancelling switch');
             isSwitchingRoom = false;
@@ -468,6 +487,8 @@ async function connectWallet(eager = false) {
                         // Force re-sign on change
                         currentSignature = null;
                         currentSignMsg = null;
+                        currentAuthNonce = null;
+                        signedForRoom = null;
                         loadWalletColor(currentWalletAddress);
                         updateWalletUI();
                         checkTokenBalance(currentWalletAddress).then(res => {
@@ -508,6 +529,8 @@ function handleWalletDisconnect() {
     currentWalletAddress = null;
     currentSignature = null;
     currentSignMsg = null;
+    currentAuthNonce = null;
+    signedForRoom = null;
     hasToken = false;
     updateWalletUI();
     renderRoomList();
@@ -516,15 +539,30 @@ function handleWalletDisconnect() {
     DOM.stepWallet.classList.remove('hidden');
 }
 
-async function signToAccess() {
+async function ensureSignedForRoom(roomId) {
+    if (!currentWalletAddress) return true;
+    if (currentSignature && currentSignMsg && currentAuthNonce && signedForRoom === roomId) return true;
+    await signToAccess(roomId);
+    return true;
+}
+
+async function signToAccess(roomId = currentRoom) {
     try {
-        const msg = 'Sign in to tryl.chat';
+        if (!currentWalletAddress) throw new Error('Wallet not connected');
+        const challengeRes = await fetch(`${getHttpBase(roomId)}/auth-challenge?wallet=${encodeURIComponent(currentWalletAddress)}`);
+        if (!challengeRes.ok) throw new Error(`Auth challenge failed (${challengeRes.status})`);
+        const challenge = await challengeRes.json();
+        const msg = challenge?.message;
+        const nonce = challenge?.nonce;
+        if (!msg || !nonce) throw new Error('Malformed auth challenge response');
         const encodedMsg = new TextEncoder().encode(msg);
         const provider = getPhantomProvider();
         if (!provider) throw new Error('Phantom provider unavailable');
         const { signature } = await provider.signMessage(encodedMsg, 'utf8');
         currentSignature = btoa(String.fromCharCode(...new Uint8Array(signature)));
         currentSignMsg = msg;
+        currentAuthNonce = nonce;
+        signedForRoom = roomId;
         console.log('[WALLET] Message signed successfully');
     } catch (signErr) {
         console.error('[WALLET] Sign failed:', signErr);
@@ -553,7 +591,7 @@ function goToStep2() {
 }
 
 // ═══ LOGIN ═══
-DOM.loginForm.addEventListener('submit', (e) => {
+DOM.loginForm.addEventListener('submit', async (e) => {
     e.preventDefault();
     const name = DOM.usernameInput.value.trim();
     if (!name) return;
@@ -563,6 +601,15 @@ DOM.loginForm.addEventListener('submit', (e) => {
         localStorage.setItem('chat_username', name);
         localStorage.setItem('chat_language', userLanguage);
     } catch (e) { }
+    if (currentWalletAddress) {
+        try {
+            await ensureSignedForRoom(currentRoom);
+        } catch {
+            alert('Signature required to continue.');
+            return;
+        }
+    }
+
     if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
             type: 'join',
@@ -570,6 +617,7 @@ DOM.loginForm.addEventListener('submit', (e) => {
             wallet: currentWalletAddress,
             signature: currentSignature,
             signMessage: currentSignMsg,
+            authNonce: currentAuthNonce,
             color: userColor
         }));
     }
@@ -1058,7 +1106,7 @@ function setupEmojiPicker() {
             const pickerOptions = {
                 data: async () => {
                     const response = await fetch(
-                        'https://cdn.jsdelivr.net/npm/@emoji-mart/data@latest/sets/14/native.json'
+                        'https://cdn.jsdelivr.net/npm/@emoji-mart/data@1.2.1/sets/14/native.json'
                     );
                     if (!response.ok) throw new Error(`emoji data fetch failed: ${response.status}`);
                     return response.json();
@@ -1597,7 +1645,12 @@ async function appendChatMessage(data, isHistory = false) {
         const replyDiv = document.createElement('div');
         replyDiv.className = 'msg-reply-context';
         const nameColor = data.replyTo.color || 'var(--text-muted)';
-        replyDiv.innerHTML = `<span class="reply-to-user" style="color: ${nameColor}">@${data.replyTo.username}</span> ${data.replyTo.text}`;
+        const replyUser = document.createElement('span');
+        replyUser.className = 'reply-to-user';
+        replyUser.style.color = nameColor;
+        replyUser.textContent = `@${data.replyTo.username}`;
+        replyDiv.appendChild(replyUser);
+        replyDiv.appendChild(document.createTextNode(` ${data.replyTo.text}`));
 
         replyDiv.addEventListener('click', () => {
             if (data.replyTo && data.replyTo.id) {
@@ -1754,7 +1807,7 @@ function initiateReaction(msgId, anchorBtn) {
     const pickerOptions = {
         data: async () => {
             try {
-                const response = await fetch('https://cdn.jsdelivr.net/npm/@emoji-mart/data');
+                const response = await fetch('https://cdn.jsdelivr.net/npm/@emoji-mart/data@1.2.1');
                 return await response.json();
             } catch (err) {
                 console.error('[PICKER] Failed to load emoji data:', err);
@@ -1793,17 +1846,33 @@ function initiateReaction(msgId, anchorBtn) {
 async function appendHelpMessage(commands) {
     const div = document.createElement('div');
     div.className = 'system-msg help-msg';
-    div.innerHTML = `
-        <div class="help-header">Available Commands</div>
-        <div class="help-list">
-            ${commands.map(c => `
-                <div class="help-item" title="Click to use">
-                    <span class="help-cmd" onclick="fillInput('${c.cmd}')">${c.cmd}</span>
-                    <span class="help-desc">${c.desc}</span>
-                </div>
-            `).join('')}
-        </div>
-    `;
+    const header = document.createElement('div');
+    header.className = 'help-header';
+    header.textContent = 'Available Commands';
+    div.appendChild(header);
+
+    const list = document.createElement('div');
+    list.className = 'help-list';
+
+    commands.forEach(c => {
+        const item = document.createElement('div');
+        item.className = 'help-item';
+        item.title = 'Click to use';
+
+        const cmd = document.createElement('span');
+        cmd.className = 'help-cmd';
+        cmd.textContent = c.cmd;
+        cmd.addEventListener('click', () => window.fillInput(c.cmd));
+
+        const desc = document.createElement('span');
+        desc.className = 'help-desc';
+        desc.textContent = c.desc;
+
+        item.appendChild(cmd);
+        item.appendChild(desc);
+        list.appendChild(item);
+    });
+    div.appendChild(list);
     DOM.chatMessages.appendChild(div);
     scrollToBottom();
 }

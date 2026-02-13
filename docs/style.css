@@ -690,35 +690,6 @@ body {
   padding: 6px 0;
 }
 
-#typing-indicator {
-  position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  margin-bottom: 6px;
-  z-index: 2000;
-  max-width: 90%;
-  padding: 6px 16px;
-  border-radius: 20px;
-  background: var(--bg-surface);
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 12px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  pointer-events: none;
-  transition: opacity 0.2s;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
-  display: block;
-  /* Ensure visibility when not hidden */
-}
-
-#typing-indicator.hidden {
-  display: none !important;
-}
-
 .msg-text a {
   color: #7bbdff;
   text-decoration: underline;
@@ -1466,76 +1437,6 @@ body {
 
 /* ═══ TYPING INDICATOR ═══ */
 /* ═══ TYPING INDICATOR ═══ */
-#typing-indicator {
-  font-size: 11px;
-  color: var(--text);
-  background: var(--bg-hover);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 4px 12px;
-
-  /* Positioning: Floating Bubble */
-  position: absolute;
-  bottom: 100%;
-  /* Above the input */
-  left: 16px;
-  margin-bottom: 8px;
-
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity 0.2s, transform 0.2s;
-  z-index: 10;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-/* Pseudo-element for the "tail" of the bubble */
-#typing-indicator::after {
-  content: '';
-  position: absolute;
-  bottom: -4px;
-  left: 12px;
-  width: 8px;
-  height: 8px;
-  background: var(--bg-hover);
-  border-bottom: 1px solid var(--border);
-  border-right: 1px solid var(--border);
-  transform: rotate(45deg);
-}
-
-#typing-indicator.hidden {
-  display: flex !important;
-  /* Keep display flex for transition */
-  opacity: 0;
-  transform: translateY(10px);
-  pointer-events: none;
-}
-
-@keyframes typing-pulse {
-  0% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-
-  50% {
-    transform: scale(1.05);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scale(1);
-    opacity: 0.8;
-  }
-}
-
-#typing-indicator:not(.hidden) {
-  animation: typing-pulse 2s infinite ease-in-out;
-}
-
-
 /* Tooltip */
 #ai-status .ai-tooltip {
   visibility: hidden;
@@ -1579,22 +1480,6 @@ body {
 
 /* ═══ REPLY BAR ═══ */
 /* ═══ TYPING INDICATOR ═══ */
-#typing-indicator {
-  font-size: 12px;
-  color: var(--text-muted);
-  font-style: italic;
-  margin-bottom: 4px;
-  min-height: 18px;
-  display: flex;
-  align-items: center;
-  /* DEBUG */
-  border: 1px dashed red;
-}
-
-#typing-indicator.hidden {
-  display: none !important;
-}
-
 /* ═══ REPLY BAR ═══ */
 #chat-input-area {
   position: relative;
@@ -2339,3 +2224,4 @@ input[type=range].scale-slider {
   transform: none;
   animation: none;
 }
+

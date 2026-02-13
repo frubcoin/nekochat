@@ -84,13 +84,91 @@ const GATED_ROOMS = ["holders-lounge"];
 // Rate limit: 5 messages per 10 seconds
 const RATE_LIMIT_WINDOW = 10000;
 const MAX_MESSAGES_PER_WINDOW = 5;
+const AUTH_CHALLENGE_TTL_MS = 2 * 60 * 1000;
+const HTTP_RATE_LIMIT_WINDOW_MS = 60 * 1000;
+const HTTP_RATE_LIMIT_MAX = 30;
 
 type GameState = "IDLE" | "READY" | "GO";
 
 export default class NekoChat implements Party.Server {
+  authChallenges = new Map<string, { nonce: string; roomId: string; expiresAt: number }>();
+  httpRateLimits = new Map<string, number[]>();
+
   private getReplyColorForIdentity(username: string, wallet?: string | null): string {
     const seed = (wallet || username || "").toLowerCase().trim();
     return getDeterministicPaletteColor(seed || "guest");
+  }
+
+  private normalizeWallet(wallet: string): string {
+    return (wallet || "").trim();
+  }
+
+  private isValidWalletFormat(wallet: string): boolean {
+    return /^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(wallet);
+  }
+
+  private buildSignMessage(roomId: string, nonce: string): string {
+    return `Sign in to tryl.chat\nRoom: ${roomId}\nNonce: ${nonce}`;
+  }
+
+  private issueAuthChallenge(wallet: string): { nonce: string; message: string; expiresAt: number } {
+    const normalizedWallet = this.normalizeWallet(wallet);
+    const nonce = crypto.randomUUID();
+    const expiresAt = Date.now() + AUTH_CHALLENGE_TTL_MS;
+    this.authChallenges.set(normalizedWallet, { nonce, roomId: this.room.id, expiresAt });
+    return {
+      nonce,
+      message: this.buildSignMessage(this.room.id, nonce),
+      expiresAt,
+    };
+  }
+
+  private validateAuthChallenge(wallet: string, nonce: string, signMessage: string): { ok: boolean; reason?: string } {
+    const normalizedWallet = this.normalizeWallet(wallet);
+    const pending = this.authChallenges.get(normalizedWallet);
+    if (!pending) return { ok: false, reason: "Missing auth challenge. Please sign in again." };
+    if (pending.roomId !== this.room.id) return { ok: false, reason: "Auth challenge room mismatch." };
+    if (Date.now() > pending.expiresAt) {
+      this.authChallenges.delete(normalizedWallet);
+      return { ok: false, reason: "Auth challenge expired. Please sign in again." };
+    }
+    if (pending.nonce !== nonce) return { ok: false, reason: "Invalid auth challenge nonce." };
+    const expectedMessage = this.buildSignMessage(this.room.id, nonce);
+    if (signMessage !== expectedMessage) return { ok: false, reason: "Invalid signed message." };
+    return { ok: true };
+  }
+
+  private static isAllowedOrigin(origin: string): boolean {
+    if (!origin) return false;
+    try {
+      const url = new URL(origin);
+      const host = (url.hostname || "").toLowerCase();
+      if (host === "localhost" || host === "127.0.0.1" || host === "[::1]") return true;
+      if (host === "frub.bio" || host.endsWith(".frub.bio")) return true;
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
+  private getCorsHeaders(req: Party.Request): Record<string, string> {
+    const origin = req.headers.get("Origin") || "";
+    if (NekoChat.isAllowedOrigin(origin)) {
+      return {
+        "Access-Control-Allow-Origin": origin,
+        "Vary": "Origin",
+      };
+    }
+    return {};
+  }
+
+  private isHttpRateLimited(req: Party.Request): boolean {
+    const ip = req.headers.get("cf-connecting-ip") || req.headers.get("x-forwarded-for") || "unknown";
+    const now = Date.now();
+    const history = (this.httpRateLimits.get(ip) || []).filter(t => now - t < HTTP_RATE_LIMIT_WINDOW_MS);
+    history.push(now);
+    this.httpRateLimits.set(ip, history);
+    return history.length > HTTP_RATE_LIMIT_MAX;
   }
 
   private getAdminWallets(): string[] {
@@ -188,9 +266,9 @@ export default class NekoChat implements Party.Server {
     }
 
     // Try multiple RPC endpoints — Helius returns 401 from CF Workers
-    // const HELIUS_API_KEY = (this.room.env.HELIUS_API_KEY as string) || "cc4ba0bb-9e76-44be-8681-511665f1c262";
+    const heliusApiKey = (this.room.env.HELIUS_API_KEY as string) || "";
     const endpoints = [
-      `https://mainnet.helius-rpc.com/?api-key=cc4ba0bb-9e76-44be-8681-511665f1c262`,
+      ...(heliusApiKey ? [`https://mainnet.helius-rpc.com/?api-key=${heliusApiKey}`] : []),
       "https://api.mainnet-beta.solana.com"
     ];
 
@@ -311,10 +389,19 @@ export default class NekoChat implements Party.Server {
 
       // ═══ SIGNATURE VERIFICATION (Strict Enforcement) ═══
       if (wallet) {
-        if (!parsed.signature || !parsed.signMessage) {
+        if (!parsed.signature || !parsed.signMessage || !parsed.authNonce) {
           sender.send(JSON.stringify({
             type: "join-error",
-            reason: "Signature required for wallet login."
+            reason: "Signature and auth challenge are required for wallet login."
+          }));
+          return;
+        }
+
+        const challengeCheck = this.validateAuthChallenge(wallet, String(parsed.authNonce || ""), String(parsed.signMessage || ""));
+        if (!challengeCheck.ok) {
+          sender.send(JSON.stringify({
+            type: "join-error",
+            reason: challengeCheck.reason || "Invalid auth challenge."
           }));
           return;
         }
@@ -362,16 +449,11 @@ export default class NekoChat implements Party.Server {
           }
           const tokenResult = await this.verifyTokenHolder(wallet);
           if (!tokenResult.ok) {
-            // Fallback: trust client-side token check if server RPC is unavailable
-            if (parsed.hasToken === true) {
-              // console.log(`[GATE] Server RPC failed (${tokenResult.detail}), trusting client hasToken for ${wallet}`);
-            } else {
-              sender.send(JSON.stringify({
-                type: "join-error",
-                reason: `Token check failed: ${tokenResult.detail}`
-              }));
-              return;
-            }
+            sender.send(JSON.stringify({
+              type: "join-error",
+              reason: `Token check failed: ${tokenResult.detail}`
+            }));
+            return;
           }
         }
       } else {
@@ -888,25 +970,57 @@ export default class NekoChat implements Party.Server {
 
   static onBeforeConnect(req: Party.Request) {
     const origin = req.headers.get("Origin") || "";
-    // Allow localhost for dev, and any subdomain of frub.bio
-    if (origin.includes("localhost") || origin.includes("127.0.0.1") || origin.endsWith("frub.bio")) {
+    if (NekoChat.isAllowedOrigin(origin)) {
       return req;
     }
     return new Response("Unauthorized Origin", { status: 403 });
   }
 
   async onRequest(req: Party.Request) {
+    const origin = req.headers.get("Origin") || "";
+    if (origin && !NekoChat.isAllowedOrigin(origin)) {
+      return new Response("Unauthorized Origin", { status: 403 });
+    }
+
+    if (req.method === "OPTIONS") {
+      return new Response(null, {
+        status: 204,
+        headers: {
+          ...this.getCorsHeaders(req),
+          "Access-Control-Allow-Methods": "GET, OPTIONS",
+          "Access-Control-Allow-Headers": "Content-Type"
+        }
+      });
+    }
+
     if (req.method === "GET") {
       const url = new URL(req.url);
 
-      // Secure Token Check (Proxy)
+      if (this.isHttpRateLimited(req)) {
+        return new Response("Too Many Requests", { status: 429, headers: this.getCorsHeaders(req) });
+      }
+
+      if (url.pathname.endsWith("/auth-challenge")) {
+        const wallet = this.normalizeWallet(url.searchParams.get("wallet") || "");
+        if (!wallet || !this.isValidWalletFormat(wallet)) {
+          return new Response("Invalid wallet", { status: 400, headers: this.getCorsHeaders(req) });
+        }
+        const challenge = this.issueAuthChallenge(wallet);
+        return new Response(JSON.stringify(challenge), {
+          status: 200,
+          headers: {
+            "Content-Type": "application/json",
+            ...this.getCorsHeaders(req)
+          },
+        });
+      }
+
       if (url.pathname.endsWith("/check-token")) {
-        const wallet = url.searchParams.get("wallet");
-        if (!wallet) {
-          return new Response("Missing wallet", { status: 400 });
+        const wallet = this.normalizeWallet(url.searchParams.get("wallet") || "");
+        if (!wallet || !this.isValidWalletFormat(wallet)) {
+          return new Response("Invalid wallet", { status: 400, headers: this.getCorsHeaders(req) });
         }
 
-        // Use existing server-side verification logic
         const result = await this.verifyTokenHolder(wallet);
         return new Response(JSON.stringify({
           ok: result.ok,
@@ -915,7 +1029,7 @@ export default class NekoChat implements Party.Server {
           status: 200,
           headers: {
             "Content-Type": "application/json",
-            "Access-Control-Allow-Origin": "*" // Allow client access
+            ...this.getCorsHeaders(req)
           },
         });
       }
