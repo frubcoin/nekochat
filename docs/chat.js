@@ -12,6 +12,7 @@ let isMod = false;
 const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const PARTYKIT_HOST = isLocal ? "localhost:1999" : "nekochat.frubcoin.partykit.dev";
 const WS_PROTOCOL = isLocal ? "ws" : "wss";
+const HTTP_PROTOCOL = isLocal ? "http" : "https";
 
 // ═══ SOLANA / TOKEN GATING ═══
 // const HELIUS_RPC_URL = "..."; // Moved to server
@@ -294,7 +295,7 @@ async function checkTokenBalance(walletAddress) {
     if (!walletAddress) return false;
     try {
         // Use server proxy instead of direct Helius call
-        const response = await fetch(`${WS_PROTOCOL}://${PARTYKIT_HOST}/party/check-token?wallet=${walletAddress}`);
+        const response = await fetch(`${HTTP_PROTOCOL}://${PARTYKIT_HOST}/party/check-token?wallet=${walletAddress}`);
         if (!response.ok) return false;
 
         const data = await response.json();

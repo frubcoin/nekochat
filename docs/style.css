@@ -2068,6 +2068,8 @@ body {
   gap: 6px;
   padding-right: 8px;
   border-right: 1px solid var(--border);
+  z-index: 10;
+  /* Ensure clicks work */
 }
 
 .icon-btn {
