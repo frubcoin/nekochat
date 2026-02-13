@@ -690,41 +690,69 @@ function initCustomUI() {
             document.getElementById('emoji-picker-container')?.classList.add('hidden');
             document.getElementById('color-picker-popover')?.classList.add('hidden');
 
-            if (popover.classList.contains('hidden')) {
-                popover.classList.remove('hidden');
-                popover.style.display = 'flex'; // Force display
-                console.log('[UI] Removed hidden class');
-            } else {
-                popover.classList.add('hidden');
-                popover.style.display = 'none';
+            const existing = document.getElementById('command-popover');
+            if (existing) {
+                existing.remove();
                 return;
             }
 
+            // Create fresh
+            const popover = document.createElement('div');
+            popover.id = 'command-popover';
+
+            // Render content immediately
+            const role = isOwner ? 'owner' : (isAdmin ? 'admin' : (isMod ? 'mod' : 'user'));
+            let availablecommands = [...COMMANDS_DATA.user];
+            if (isMod || isAdmin || isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.mod];
+            if (isAdmin || isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.admin];
+            if (isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.owner];
+
+            popover.innerHTML = `
+                <div class="command-header">
+                    <span>Available Commands (${role.toUpperCase()})</span>
+                    <span style="font-size:10px; opacity:0.7">Click to use</span>
+                </div>
+                <div class="command-list">
+                    ${availablecommands.length ? availablecommands.map(c => `
+                        <div class="command-item" data-cmd="${c.cmd.split(' ')[0]} ">
+                            <div class="cmd-code">${c.cmd}</div>
+                            <div class="cmd-desc">${c.desc}</div>
+                        </div>
+                    `).join('') : '<div style="padding:10px; color:var(--text-muted)">No commands</div>'}
+                </div>
+            `;
+
+            document.body.appendChild(popover);
+
             // Position it
             const rect = btnCommands.getBoundingClientRect();
-            console.log('[UI] Button rect:', rect);
+            popover.style.display = 'flex';
+            popover.style.flexDirection = 'column';
+            popover.style.position = 'fixed';
+            popover.style.bottom = (window.innerHeight - rect.top + 10) + 'px';
+            popover.style.left = (rect.right - 250) + 'px';
+            popover.style.width = '250px';
+            popover.style.maxHeight = '300px';
+            popover.style.zIndex = '999999';
+            // Copy styles from CSS class manually or rely on ID matching if CSS is good. 
+            // We'll rely on CSS for visual style (colors etc) but enforce layout here.
 
-            // Popover width is ~250px. Align right edge with button right, or center
-            popover.style.position = 'fixed'; // Fixed to viewport
-            popover.style.bottom = (window.innerHeight - rect.top + 10) + 'px'; // Above button
-            popover.style.left = (rect.right - 250) + 'px'; // Offset left
-            popover.style.right = 'auto'; // Override CSS
-            popover.style.top = 'auto'; // Override CSS
-
-            console.log('[UI] Popover styles:', {
-                bottom: popover.style.bottom,
-                left: popover.style.left,
-                zIndex: window.getComputedStyle(popover).zIndex
+            // Add click listeners
+            popover.querySelectorAll('.command-item').forEach(item => {
+                item.addEventListener('click', () => {
+                    const cmd = item.getAttribute('data-cmd');
+                    DOM.chatInput.value = cmd;
+                    DOM.chatInput.focus();
+                    popover.remove();
+                });
             });
-
-            popover.classList.remove('hidden');
-            updateCommandList();
         });
 
         // Close on outside click
         document.addEventListener('click', (e) => {
+            const popover = document.getElementById('command-popover');
             if (popover && !popover.contains(e.target) && e.target !== btnCommands) {
-                popover.classList.add('hidden');
+                popover.remove();
             }
         });
     }
@@ -770,53 +798,6 @@ if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initCustomUI);
 } else {
     initCustomUI();
-}
-
-// Helper for command rendering (moved from inline)
-function updateCommandList() {
-    const commandPopover = document.getElementById('command-popover');
-    if (!commandPopover) return;
-
-    const role = isOwner ? 'owner' : (isAdmin ? 'admin' : (isMod ? 'mod' : 'user'));
-    console.log('[UI] Updating command list for role:', role);
-    let availablecommands = [...COMMANDS_DATA.user];
-
-    if (isMod || isAdmin || isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.mod];
-    if (isAdmin || isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.admin];
-    if (isOwner) availablecommands = [...availablecommands, ...COMMANDS_DATA.owner];
-
-    console.log('[UI] Command count:', availablecommands.length);
-
-    // Force simple content for debugging if empty
-    if (!availablecommands.length) {
-        commandPopover.innerHTML = '<div style="padding:10px; color:red;">No commands found</div>';
-        return;
-    }
-
-    commandPopover.innerHTML = `
-        <div class="command-header">
-            <span>Available Commands (${role.toUpperCase()})</span>
-            <span style="font-size:10px; opacity:0.7">Click to use</span>
-        </div>
-        <div class="command-list">
-            ${availablecommands.map(c => `
-                <div class="command-item" data-cmd="${c.cmd.split(' ')[0]} ">
-                    <div class="cmd-code">${c.cmd}</div>
-                    <div class="cmd-desc">${c.desc}</div>
-                </div>
-            `).join('')}
-        </div>
-    `;
-
-    // Add click listeners to items
-    commandPopover.querySelectorAll('.command-item').forEach(item => {
-        item.addEventListener('click', () => {
-            const cmd = item.dataset.cmd;
-            DOM.chatInput.value = cmd;
-            DOM.chatInput.focus();
-            commandPopover.classList.add('hidden');
-        });
-    });
 }
 
 function loadWalletColor(wallet) {
