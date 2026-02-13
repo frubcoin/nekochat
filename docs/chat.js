@@ -1454,7 +1454,7 @@ async function appendChatMessage(data, isHistory = false) {
     replyBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 0 1 5 5v2"/><path d="M3 10l6-6"/><path d="M3 10l6 6"/></svg>`;
     replyBtn.onclick = (e) => {
         e.stopPropagation();
-        initiateReply(data.id, data.username, data.text);
+        initiateReply({ id: data.id, username: data.username, text: data.text });
     };
     actionsDiv.appendChild(replyBtn);
 
@@ -1511,7 +1511,7 @@ async function appendChatMessage(data, isHistory = false) {
 
     // Double click to reply
     div.addEventListener('dblclick', () => {
-        initiateReply(data.id, data.username, data.text);
+        initiateReply({ id: data.id, username: data.username, text: data.text });
     });
 
     DOM.chatMessages.appendChild(div);
@@ -1664,6 +1664,16 @@ function updateUserList(users, total) {
 function updateVisitorCount(count) {
     if (DOM.visitorNum) DOM.visitorNum.textContent = count.toLocaleString();
     if (DOM.counterValue) DOM.counterValue.textContent = count.toLocaleString();
+}
+
+function sendReaction(msgId, emoji) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+            type: 'reaction',
+            messageId: msgId,
+            emoji: emoji
+        }));
+    }
 }
 
 function scrollToBottom() {

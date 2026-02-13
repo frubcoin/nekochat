@@ -1712,10 +1712,7 @@ body {
   opacity: 1;
 }
 
-/* Redundant button removed in JS, but keeping styles clean */
-.msg-action-reply {
-  display: none;
-}
+
 
 .reaction-picker-popover {
   box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
