@@ -98,6 +98,16 @@ function connectWebSocket(roomId) {
                 updateVisitorCount(data.count);
                 break;
 
+            case 'reaction-update':
+                const targetMsg = document.getElementById(`msg-${data.messageId}`);
+                if (targetMsg) {
+                    const wasNearBottom = isNearBottom();
+                    updateMessageReactions(targetMsg, data.reactions);
+                    if (wasNearBottom) {
+                        scrollToBottom();
+                    }
+                }
+                break;
             case 'admin-reveal':
                 const msgEl = document.getElementById(`msg-${data.msgId}`);
                 if (msgEl) {
@@ -1928,6 +1938,11 @@ function sendReaction(msgId, emoji) {
 
 function scrollToBottom() {
     DOM.chatMessages.scrollTop = DOM.chatMessages.scrollHeight;
+}
+
+function isNearBottom() {
+    const threshold = 100; // pixels
+    return DOM.chatMessages.scrollHeight - DOM.chatMessages.scrollTop - DOM.chatMessages.clientHeight <= threshold;
 }
 
 // ═══ CURSOR TRAIL ═══
