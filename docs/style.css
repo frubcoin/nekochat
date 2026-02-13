@@ -1807,7 +1807,7 @@ body {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 12px;
+  width: 8px;
   /* Easy to grab */
   cursor: col-resize;
   z-index: 2000;
