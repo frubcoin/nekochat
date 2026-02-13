@@ -1708,4 +1708,42 @@ function setupGestures() {
 setupGestures();
 
 // Start connection after DOM and listeners are ready
+// ═══ REPLY LOGIC ═══
+const replyBar = document.getElementById('reply-bar');
+const replyToUser = document.getElementById('reply-to-user');
+const replyPreview = document.getElementById('reply-text-preview');
+const btnCancelReply = document.getElementById('btn-cancel-reply');
+
+if (btnCancelReply) {
+    btnCancelReply.addEventListener('click', cancelReply);
+}
+
+function initiateReply(msgData) {
+    if (!msgData || !replyBar) return;
+
+    // Don't quote if already quoting
+    // or quoting a quote? 
+    // Just simple for now: quote the message data we have.
+
+    replyContext = {
+        username: msgData.username,
+        text: msgData.text,
+        timestamp: msgData.timestamp
+    };
+
+    replyToUser.textContent = msgData.username;
+    replyPreview.textContent = msgData.text;
+
+    replyBar.classList.remove('hidden');
+    DOM.chatInput.focus();
+}
+
+function cancelReply() {
+    replyContext = null;
+    if (replyBar) replyBar.classList.add('hidden');
+    if (replyToUser) replyToUser.textContent = '';
+    if (replyPreview) replyPreview.textContent = '';
+}
+
+// Start connection after DOM and listeners are ready
 connectWebSocket('main-lobby');
