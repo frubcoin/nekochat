@@ -292,7 +292,7 @@ export default class NekoChat implements Party.Server {
     try {
       const url = new URL(proxyUrl);
       url.searchParams.set("wallet", wallet);
-      const proxySecret = (this.room.env.TOKEN_CHECK_PROXY_SECRET as string) || "";
+      const proxySecret = ((this.room.env.TOKEN_CHECK_PROXY_SECRET as string) || "").trim();
       const response = await fetch(url.toString(), {
         method: "GET",
         headers: proxySecret ? { "x-relay-secret": proxySecret } : {}
