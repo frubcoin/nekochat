@@ -219,7 +219,7 @@ const DOM = {
 };
 
 let userLanguage = 'en';
-let currentUsername = '';
+// currentUsername is defined at the top
 try {
     const savedName = localStorage.getItem('chat_username') || '';
     if (savedName && DOM.usernameInput) {
