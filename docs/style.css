@@ -2070,8 +2070,13 @@ body {
   gap: 6px;
   padding-right: 8px;
   border-right: 1px solid var(--border);
-  z-index: 10;
-  /* Ensure clicks work */
+  z-index: 100;
+  /* Ensure clicks work (high priority) */
+}
+
+/* Ensure SVG doesn't steal clicks */
+.icon-btn svg {
+  pointer-events: none;
 }
 
 .icon-btn {

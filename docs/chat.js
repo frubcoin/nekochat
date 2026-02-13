@@ -648,6 +648,13 @@ const COMMANDS_DATA = {
 function initCustomUI() {
     console.log('[UI] Initializing UI elements...');
 
+    // Debug clicks
+    document.addEventListener('click', (e) => {
+        if (e.target.closest('#btn-commands')) {
+            console.log('[UI] Document saw command btn click');
+        }
+    });
+
     // Commands
     const btnCommands = document.getElementById('btn-commands');
     const commandPopover = document.getElementById('command-popover');
