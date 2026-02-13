@@ -1339,6 +1339,7 @@ function updateTypingIndicator(users) {
     if (count === 0) {
         DOM.typingIndicator.classList.add('hidden');
         DOM.typingIndicator.textContent = '';
+        console.log('[TYPING] Hidden');
         return;
     }
 
@@ -1359,6 +1360,7 @@ function updateTypingIndicator(users) {
 
     DOM.typingIndicator.textContent = label;
     DOM.typingIndicator.classList.remove('hidden');
+    console.log('[TYPING] Visible:', label, DOM.typingIndicator);
 }
 
 function sendTypingState(nextState) {
