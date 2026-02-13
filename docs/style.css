@@ -1794,33 +1794,36 @@ body {
   /* For handle positioning */
   transition: width 0.0s;
   /* Disable transition during drag */
+  /* Disable transition during drag */
   overflow-x: hidden;
   /* Prevent scrollbars from handles */
   touch-action: none;
   /* Required for interact.js dragging */
+  position: relative;
+  /* Ensure containment */
 }
 
 .resize-handle {
   position: absolute;
   top: 0;
   bottom: 0;
-  width: 10px;
-  /* Increased from 6px for easier grabbing */
+  width: 12px;
+  /* Easy to grab */
   cursor: col-resize;
-  z-index: 1000;
-  /* High z-index */
+  z-index: 2000;
+  /* Highest in sidebar */
   transition: background 0.2s;
   touch-action: none;
 }
 
 #resizer-left {
-  right: -3px;
-  /* Center on border */
+  right: 0;
+  /* Inside to avoid clipping */
 }
 
 #resizer-right {
-  left: -3px;
-  /* Center on border */
+  left: 0;
+  /* Inside to avoid clipping */
 }
 
 .resize-handle:hover,
