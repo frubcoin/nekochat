@@ -84,8 +84,17 @@ function connectWebSocket(roomId) {
                 if (msgEl) {
                     const usernameEl = msgEl.querySelector('.msg-username');
                     if (usernameEl) {
-                        usernameEl.title = `Wallet: ${data.wallet}`;
-                        usernameEl.style.cursor = 'help';
+                        usernameEl.title = `Wallet: ${data.wallet} (Click to copy)`;
+                        usernameEl.style.cursor = 'pointer';
+                        usernameEl.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(data.wallet).then(() => {
+                                const originalText = usernameEl.textContent;
+                                usernameEl.textContent = "Copied!";
+                                setTimeout(() => usernameEl.textContent = originalText, 1000);
+                            }).catch(err => console.error(err));
+                        });
                     }
                 }
                 break;
@@ -1408,10 +1417,22 @@ async function appendChatMessage(data, isHistory = false) {
         nameEl.textContent = data.username;
         nameEl.style.color = data.color;
 
-        // Admin: Wallet Hover
+        // Admin: Wallet Hover & Copy
         if (data.wallet) {
-            nameEl.title = `Wallet: ${data.wallet}`;
-            nameEl.style.cursor = 'help';
+            nameEl.title = `Wallet: ${data.wallet} (Click to copy)`;
+            nameEl.style.cursor = 'pointer';
+            nameEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                navigator.clipboard.writeText(data.wallet).then(() => {
+                    // Visual feedback
+                    const originalText = nameEl.textContent;
+                    nameEl.textContent = "Copied!";
+                    setTimeout(() => nameEl.textContent = originalText, 1000);
+                }).catch(err => {
+                    console.error('Failed to copy wallet:', err);
+                });
+            });
         }
 
         if (data.isOwner) {
