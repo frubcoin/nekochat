@@ -1464,7 +1464,11 @@ async function appendChatMessage(data, isHistory = false) {
     actionsDiv.appendChild(replyBtn);
 
 
-    div.appendChild(actionsDiv);
+    // Insert actions inline into the text element
+    const unescapedText = data.text.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+    const msgTextEl = div.querySelector('.msg-text');
+    msgTextEl.innerHTML = linkifyText(unescapedText);
+    msgTextEl.prepend(actionsDiv);
 
     // Reactions Container (ensure it's always created so we can target it easily)
     const reactionsContainer = document.createElement('div');
@@ -1478,12 +1482,7 @@ async function appendChatMessage(data, isHistory = false) {
     }
 
 
-    // Store ID for updates (redundant safety)
     if (data.id) div.id = `msg-${data.id}`;
-
-    const unescapedText = data.text.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
-    const msgTextEl = div.querySelector('.msg-text');
-    msgTextEl.innerHTML = linkifyText(unescapedText);
 
     const urls = unescapedText.match(/(https?:\/\/[^\s]+)/gi) || [];
     const canEmbedUrls = !!(data.isOwner || data.isAdmin || data.isMod || data.canEmbedUrls);

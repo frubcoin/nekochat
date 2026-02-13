@@ -241,6 +241,7 @@ export default class NekoChat implements Party.Server {
   roundWins = new Map<string, number>(); // username -> wins
   mutedUsers = new Set<string>(); // usernames
   pinnedMessage: string | null = null;
+  lastGameStartTime: number = 0;
 
 
 
@@ -395,6 +396,8 @@ export default class NekoChat implements Party.Server {
       const history =
         ((await this.room.storage.get("chatHistory")) as any[]) || [];
       const recent = history.slice(-HISTORY_ON_JOIN).map((msg: any) => {
+        // Ensure every message has an ID for reactions to work
+        if (!msg.id) msg.id = crypto.randomUUID();
         // Strip wallet from history messages sent to client
         const safeMsg = { ...msg };
         delete safeMsg.wallet;
@@ -435,6 +438,7 @@ export default class NekoChat implements Party.Server {
       this.room.broadcast(
         JSON.stringify({ type: "visitor-count", count: visitorCount })
       );
+      return;
     }
 
     // ═══ REACTIONS ═══
@@ -489,6 +493,11 @@ export default class NekoChat implements Party.Server {
       this.totalRounds = rounds;
       this.currentRound = 1;
       this.roundWins.clear();
+
+      // Cooldown to prevent duplicate starts (5 seconds)
+      const now = Date.now();
+      if (now - this.lastGameStartTime < 5000) return;
+      this.lastGameStartTime = now;
 
       // Broadcast series start
       this.room.broadcast(JSON.stringify({
