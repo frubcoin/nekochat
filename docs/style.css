@@ -2274,3 +2274,49 @@ input[type=range].scale-slider {
   font-size: 12px;
   color: var(--text-muted);
 }
+
+/* Authoritative typing bubble style (overrides legacy duplicate rules above). */
+#chat-input-area {
+  position: relative;
+  overflow: visible;
+}
+
+#chat-input-area #typing-indicator {
+  position: absolute;
+  left: 12px;
+  bottom: calc(100% + 8px);
+  display: flex;
+  align-items: center;
+  max-width: min(80vw, 520px);
+  padding: 6px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  background: var(--bg-hover);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-style: normal;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+  z-index: 3000;
+  pointer-events: none;
+}
+
+#chat-input-area #typing-indicator::after {
+  content: '';
+  position: absolute;
+  left: 14px;
+  top: 100%;
+  width: 8px;
+  height: 8px;
+  background: var(--bg-hover);
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  transform: translateY(-50%) rotate(45deg);
+}
+
+#chat-input-area #typing-indicator.hidden {
+  display: none !important;
+}
