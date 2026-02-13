@@ -1413,10 +1413,7 @@ async function appendChatMessage(data, isHistory = false) {
         div.innerHTML = `<div class="msg-text"></div>`;
     }
 
-    // Reactions Container (ensure it's always created so we can target it easily)
-    const reactionsContainer = document.createElement('div');
-    reactionsContainer.className = 'msg-reactions';
-    div.appendChild(reactionsContainer);
+    // reactionsContainer will be created and appended at the end
 
 
     // Reply Context
@@ -1469,13 +1466,19 @@ async function appendChatMessage(data, isHistory = false) {
 
     div.appendChild(actionsDiv);
 
-    // Initial Reaction Render
+    // Reactions Container (ensure it's always created so we can target it easily)
+    const reactionsContainer = document.createElement('div');
+    reactionsContainer.className = 'msg-reactions';
+    div.appendChild(reactionsContainer);
+
+    // Initial Reaction Render (must happen AFTER id is set)
+    if (data.id) div.id = `msg-${data.id}`;
     if (data.reactions && Object.keys(data.reactions).length > 0) {
         renderReactionsInto(reactionsContainer, data.id, data.reactions);
     }
 
 
-    // Store ID for updates
+    // Store ID for updates (redundant safety)
     if (data.id) div.id = `msg-${data.id}`;
 
     const unescapedText = data.text.replace(/&lt;/g, '<').replace(/&gt;/g, '>');

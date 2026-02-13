@@ -1005,6 +1005,7 @@ export default class NekoChat implements Party.Server {
       this.rateLimits.set(sender.id, recent);
 
       const msgData = {
+        id: crypto.randomUUID(),
         msgType: "chat",
         username,
         color,
