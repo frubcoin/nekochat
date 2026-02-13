@@ -154,6 +154,10 @@ function connectWebSocket(roomId) {
                 if (currentUsername) showGameOverlay('series-end', data);
                 break;
 
+            case 'reaction-update':
+                updateMessageReactions(data.messageId, data.reactions);
+                break;
+
         }
     });
 
@@ -232,6 +236,31 @@ let currentDraft = '';
 
 // Reply state
 let replyContext = null; // { id, username, text }
+
+// Reaction state
+let reactionTargetId = null;
+
+function initiateReaction(msgId, btnElement) {
+    reactionTargetId = msgId;
+    console.log('[REACTION] Initiating for:', msgId);
+
+    // Open picker
+    const btnEmoji = document.getElementById('btn-emoji');
+    if (btnEmoji) btnEmoji.click();
+
+    // Optional: Position picker near button? 
+    // For now, standard picker location is fine, but we need to know we are in "reaction mode"
+}
+
+function sendReaction(msgId, emoji) {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    console.log('[REACTION] Sending:', emoji, 'to', msgId);
+    ws.send(JSON.stringify({
+        type: 'reaction',
+        messageId: msgId,
+        emoji: emoji
+    }));
+}
 
 const COMMANDS = [
     '/whitelist',
@@ -944,6 +973,13 @@ function setupEmojiPicker() {
     }
 
     function insertEmoji(emoji) {
+        if (reactionTargetId) {
+            sendReaction(reactionTargetId, emoji);
+            reactionTargetId = null; // Reset
+            hidePicker();
+            return;
+        }
+
         const input = DOM.chatInput;
         const start = input.selectionStart;
         const end = input.selectionEnd;
@@ -1396,58 +1432,147 @@ async function appendChatMessage(data, isHistory = false) {
         }
     }
 
+    // Reaction & Reply Actions
+    const actionsDiv = document.createElement('div');
+    actionsDiv.className = 'msg-actions';
+
+    // Reaction Button
+    const reactBtn = document.createElement('button');
+    reactBtn.className = 'msg-action-btn msg-action-react';
+    reactBtn.title = "Add Reaction";
+    reactBtn.innerHTML = `<img src="Face Thinking.svg" alt="React" />`;
+    reactBtn.onclick = (e) => {
+        e.stopPropagation();
+        initiateReaction(data.id, reactBtn);
+    };
+    actionsDiv.appendChild(reactBtn);
+
+    // Reply Button
+    const replyBtn = document.createElement('button');
+    replyBtn.className = 'msg-action-btn msg-action-reply';
+    replyBtn.title = "Reply";
+    replyBtn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 10h10a5 5 0 0 1 5 5v2"/><path d="M3 10l6-6"/><path d="M3 10l6 6"/></svg>`;
+    replyBtn.onclick = (e) => {
+        e.stopPropagation();
+        initiateReply(data.id, data.username, data.text);
+    };
+    actionsDiv.appendChild(replyBtn);
+
+    div.appendChild(actionsDiv);
+
+    // Render Reactions
+    if (data.reactions && Object.keys(data.reactions).length > 0) {
+        const reactionsBar = document.createElement('div');
+        reactionsBar.className = 'msg-reactions';
+
+        Object.entries(data.reactions).forEach(([emoji, users]) => {
+            if (!Array.isArray(users) || users.length === 0) return;
+
+            const pill = document.createElement('button');
+            pill.className = 'reaction-pill';
+            if (users.includes(currentUsername)) pill.classList.add('active');
+            pill.title = users.join(', ');
+            pill.innerHTML = `<span class="reaction-emoji">${emoji}</span> <span class="reaction-count">${users.length}</span>`;
+
+            pill.onclick = (e) => {
+                e.stopPropagation();
+                sendReaction(data.id, emoji);
+            };
+            reactionsBar.appendChild(pill);
+        });
+
+        div.appendChild(reactionsBar);
+    }
+
+    // Store ID for updates
+    if (data.id) div.id = `msg-${data.id}`;
+
     const unescapedText = data.text.replace(/&lt;/g, '<').replace(/&gt;/g, '>');
     const msgTextEl = div.querySelector('.msg-text');
-    msgTextEl.innerHTML = linkifyText(unescapedText);
+    // ... rest of appendChatMessage ...
+}
 
-    const urls = unescapedText.match(/(https?:\/\/[^\s]+)/gi) || [];
-    const canEmbedUrls = !!(data.isOwner || data.isAdmin || data.isMod || data.canEmbedUrls);
-    if (canEmbedUrls && urls.length > 0) {
-        const embed = getEmbedUrl(urls[0]);
-        if (embed) {
-            const wrap = document.createElement('div');
-            wrap.className = 'msg-embed';
-            if (embed.type === 'iframe') {
-                wrap.innerHTML = `<iframe src="${embed.src}" loading="lazy" allowfullscreen referrerpolicy="no-referrer"></iframe>`;
-            } else if (embed.type === 'img') {
-                wrap.innerHTML = `<img src="${embed.src}" alt="embedded content" loading="lazy">`;
-            } else if (embed.type === 'video') {
-                wrap.innerHTML = `<video src="${embed.src}" controls preload="metadata"></video>`;
-            }
-            div.appendChild(wrap);
-        }
-    }
+function updateMessageReactions(msgId, reactions) {
+    const msgDiv = document.getElementById(`msg-${msgId}`);
+    if (!msgDiv) return;
 
-    // Double click to reply
-    div.addEventListener('dblclick', () => {
-        initiateReply(data);
+    // Remove existing reactions bar
+    const existing = msgDiv.querySelector('.msg-reactions');
+    if (existing) existing.remove();
+
+    if (!reactions || Object.keys(reactions).length === 0) return;
+
+    const reactionsBar = document.createElement('div');
+    reactionsBar.className = 'msg-reactions';
+
+    Object.entries(reactions).forEach(([emoji, users]) => {
+        if (!Array.isArray(users) || users.length === 0) return;
+
+        const pill = document.createElement('button');
+        pill.className = 'reaction-pill';
+        if (users.includes(currentUsername)) pill.classList.add('active');
+        pill.title = users.join(', ');
+        pill.innerHTML = `<span class="reaction-emoji">${emoji}</span> <span class="reaction-count">${users.length}</span>`;
+
+        pill.onclick = (e) => {
+            e.stopPropagation();
+            sendReaction(msgId, emoji);
+        };
+        reactionsBar.appendChild(pill);
     });
 
-    // Hover Reply Button
-    const replyBtn = document.createElement('button');
-    replyBtn.className = 'msg-action-reply';
-    replyBtn.title = 'Reply';
-    replyBtn.innerHTML = '<img src="Comments.svg" alt="Reply">';
-    replyBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        initiateReply(data);
-    });
-    div.appendChild(replyBtn);
+    msgDiv.appendChild(reactionsBar);
+}
+msgTextEl.innerHTML = linkifyText(unescapedText);
 
-    DOM.chatMessages.appendChild(div);
-
-    // Auto-Translation: Skip if system message or if it's from history
-    // User requested "force translation on any non native language".
-    if (!isHistory && unescapedText && userLanguage) {
-        const result = await translateText(unescapedText, userLanguage);
-        if (result && result.trim().toLowerCase() !== unescapedText.trim().toLowerCase()) {
-            const translationDiv = document.createElement('div');
-            translationDiv.className = 'msg-translation';
-            translationDiv.textContent = `🌐 ${result}`;
-            div.appendChild(translationDiv);
-            scrollToBottom();
+const urls = unescapedText.match(/(https?:\/\/[^\s]+)/gi) || [];
+const canEmbedUrls = !!(data.isOwner || data.isAdmin || data.isMod || data.canEmbedUrls);
+if (canEmbedUrls && urls.length > 0) {
+    const embed = getEmbedUrl(urls[0]);
+    if (embed) {
+        const wrap = document.createElement('div');
+        wrap.className = 'msg-embed';
+        if (embed.type === 'iframe') {
+            wrap.innerHTML = `<iframe src="${embed.src}" loading="lazy" allowfullscreen referrerpolicy="no-referrer"></iframe>`;
+        } else if (embed.type === 'img') {
+            wrap.innerHTML = `<img src="${embed.src}" alt="embedded content" loading="lazy">`;
+        } else if (embed.type === 'video') {
+            wrap.innerHTML = `<video src="${embed.src}" controls preload="metadata"></video>`;
         }
+        div.appendChild(wrap);
     }
+}
+
+// Double click to reply
+div.addEventListener('dblclick', () => {
+    initiateReply(data);
+});
+
+// Hover Reply Button
+const replyBtn = document.createElement('button');
+replyBtn.className = 'msg-action-reply';
+replyBtn.title = 'Reply';
+replyBtn.innerHTML = '<img src="Comments.svg" alt="Reply">';
+replyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    initiateReply(data);
+});
+div.appendChild(replyBtn);
+
+DOM.chatMessages.appendChild(div);
+
+// Auto-Translation: Skip if system message or if it's from history
+// User requested "force translation on any non native language".
+if (!isHistory && unescapedText && userLanguage) {
+    const result = await translateText(unescapedText, userLanguage);
+    if (result && result.trim().toLowerCase() !== unescapedText.trim().toLowerCase()) {
+        const translationDiv = document.createElement('div');
+        translationDiv.className = 'msg-translation';
+        translationDiv.textContent = `🌐 ${result}`;
+        div.appendChild(translationDiv);
+        scrollToBottom();
+    }
+}
 }
 
 function appendSystemMessage(data) {

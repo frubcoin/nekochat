@@ -521,38 +521,6 @@ body {
   /* Context for reply button */
 }
 
-/* Hover Reply Button */
-.msg-action-reply {
-  position: absolute;
-  right: 0;
-  top: 4px;
-  background: transparent;
-  border: none;
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s;
-  padding: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10;
-}
-
-.chat-msg:hover .msg-action-reply {
-  opacity: 1;
-}
-
-.msg-action-reply img {
-  width: 16px;
-  height: 16px;
-  display: block;
-  filter: brightness(0.7);
-}
-
-.msg-action-reply:hover img {
-  filter: brightness(1);
-}
-
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -1675,9 +1643,92 @@ body {
 }
 
 /* Fix SVG alignment */
-.scroll-btn svg path {
-  fill: currentColor;
+/* ═══ REACTIONS ═══ */
+.msg-actions {
+  position: absolute;
+  right: 0;
+  top: 4px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
 }
+
+.chat-msg:hover .msg-actions {
+  opacity: 1;
+}
+
+.msg-action-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: var(--text-muted);
+}
+
+.msg-action-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.msg-action-btn img {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.msg-action-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.msg-reactions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.reaction-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.reaction-pill:hover {
+  border-color: var(--text-muted);
+  background: var(--bg-hover);
+}
+
+.reaction-pill.active {
+  background: rgba(var(--accent-rgb), 0.1);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.reaction-emoji {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.reaction-count {
+  font-weight: 600;
+}
+
 
 .scroll-btn.hidden {
   opacity: 0.3;

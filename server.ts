@@ -368,6 +368,9 @@ export default class NekoChat implements Party.Server {
       const canEmbedUrls = await this.canShareUrl(wallet, isAdmin, isMod, isOwner);
       sender.setState({ username, color, wallet, isAdmin, isMod, isOwner, canEmbedUrls, isTyping: false });
 
+      // Generate unique ID for the message
+      const messageId = crypto.randomUUID();
+
       if (isAdmin || isMod || isOwner) {
         sender.send(JSON.stringify({ type: "admin-mode" }));
       }
@@ -385,6 +388,7 @@ export default class NekoChat implements Party.Server {
 
       // Broadcast join system message
       const joinMsg = {
+        id: crypto.randomUUID(), // System messages also get IDs
         msgType: "system",
         text: `✦ ${username} has entered the chat ✦`,
         timestamp: Date.now(),
@@ -415,6 +419,48 @@ export default class NekoChat implements Party.Server {
       this.room.broadcast(
         JSON.stringify({ type: "visitor-count", count: visitorCount })
       );
+    }
+
+    // ═══ REACTIONS ═══
+    if (parsed.type === "reaction") {
+      const { messageId, emoji } = parsed;
+      const state = sender.state as any;
+      if (!state?.username || !messageId || !emoji) return;
+
+      // Update history with reaction
+      const history = ((await this.room.storage.get("chatHistory")) as any[]) || [];
+      const msgIndex = history.findIndex((m: any) => m.id === messageId);
+
+      if (msgIndex !== -1) {
+        const msg = history[msgIndex];
+        if (!msg.reactions) msg.reactions = {};
+
+        // Toggle or Add? Let's implement simple add/overwrite for now, or append?
+        // Usually reactions are per-user. 
+        // Structure: reactions: { "👍": ["user1", "user2"], "🔥": ["user3"] }
+
+        if (!msg.reactions[emoji]) msg.reactions[emoji] = [];
+
+        // Prevent duplicate reactions from same user on same emoji
+        if (!msg.reactions[emoji].includes(state.username)) {
+          msg.reactions[emoji].push(state.username);
+        } else {
+          // Toggle off if already reacted?
+          msg.reactions[emoji] = msg.reactions[emoji].filter((u: string) => u !== state.username);
+          if (msg.reactions[emoji].length === 0) delete msg.reactions[emoji];
+        }
+
+        history[msgIndex] = msg;
+        await this.room.storage.put("chatHistory", history);
+
+        // Broadcast update
+        this.room.broadcast(JSON.stringify({
+          type: "reaction-update",
+          messageId,
+          reactions: msg.reactions
+        }));
+      }
+      return;
     }
 
     // ═══ GAME: START (Admin Only) ═══
