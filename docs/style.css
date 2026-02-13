@@ -780,6 +780,7 @@ body {
 }
 
 .color-btn {
+  opacity: 0.7;
   width: 36px;
   height: 36px;
   border-radius: 50%;
@@ -796,6 +797,7 @@ body {
 }
 
 .color-btn:hover {
+  opacity: 1;
   border-color: rgba(255, 255, 255, 0.6);
 }
 
