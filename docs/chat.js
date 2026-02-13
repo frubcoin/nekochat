@@ -1402,6 +1402,17 @@ async function appendChatMessage(data, isHistory = false) {
         initiateReply(data);
     });
 
+    // Hover Reply Button
+    const replyBtn = document.createElement('button');
+    replyBtn.className = 'msg-action-reply';
+    replyBtn.title = 'Reply';
+    replyBtn.innerHTML = '<img src="Comments.svg" alt="Reply">';
+    replyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        initiateReply(data);
+    });
+    div.appendChild(replyBtn);
+
     DOM.chatMessages.appendChild(div);
 
     // Auto-Translation: Skip if system message or if it's from history

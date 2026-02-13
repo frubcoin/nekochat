@@ -517,6 +517,40 @@ body {
   animation: fadeIn 0.2s ease-out;
   word-wrap: break-word;
   overflow-wrap: break-word;
+  position: relative;
+  /* Context for reply button */
+}
+
+/* Hover Reply Button */
+.msg-action-reply {
+  position: absolute;
+  right: 0;
+  top: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.chat-msg:hover .msg-action-reply {
+  opacity: 1;
+}
+
+.msg-action-reply img {
+  width: 16px;
+  height: 16px;
+  display: block;
+  filter: brightness(0.7);
+}
+
+.msg-action-reply:hover img {
+  filter: brightness(1);
 }
 
 @keyframes fadeIn {
