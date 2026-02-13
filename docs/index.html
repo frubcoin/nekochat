@@ -205,6 +205,31 @@
               <div id="color-picker-popover" class="hidden"></div>
               <button type="button" id="btn-emoji" class="icon-btn">😊</button>
               <div id="emoji-picker-container" class="hidden"></div>
+              <button type="button" id="btn-appearance" class="icon-btn" title="Appearance">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path
+                    d="M2 12C2 17.5228 6.47715 22 12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12ZM13 7H11V11H7V13H11V17H13V13H17V11H13V7Z"
+                    fill="currentColor" />
+                  <!-- Changed icon to plus-circle-ish or generic settings? Using 'Aa' or 'resize' might be better, but this is a placeholder SVG -->
+                  <path d="M4 12V10H20V12H4Z" fill="currentColor" style="display:none" />
+                </svg>
+                <span style="font-size: 14px; font-weight: bold; margin-top:-2px;">Aa</span>
+              </button>
+              <div id="appearance-popover" class="hidden">
+                <div class="appearance-row">
+                  <span class="appearance-label">Zoom</span>
+                  <span id="scale-value-display" class="scale-value">100%</span>
+                </div>
+                <div class="appearance-row">
+                  <button id="btn-scale-down" class="scale-btn">−</button>
+                  <input type="range" id="scale-slider" class="scale-slider" min="0.5" max="2.0" step="0.1" value="1">
+                  <button id="btn-scale-up" class="scale-btn">+</button>
+                </div>
+                <div class="appearance-row">
+                  <button id="btn-scale-reset" class="scale-btn" style="width:100%; font-size:12px;">Reset</button>
+                </div>
+              </div>
+
               <button type="button" id="btn-commands" class="icon-btn command-btn" title="Commands">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M2 5H22V7H2V5ZM2 11H22V13H2V11ZM2 17H22V19H2V17Z" fill="currentColor" />
