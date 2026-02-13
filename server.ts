@@ -276,6 +276,15 @@ export default class NekoChat implements Party.Server {
     return Array.from(new Set([...fromEnv, ...helius, ...defaults]));
   }
 
+  private rpcLabel(rpcUrl: string): string {
+    try {
+      const u = new URL(rpcUrl);
+      return `${u.origin}${u.pathname}`;
+    } catch {
+      return rpcUrl;
+    }
+  }
+
   private async verifyTokenHolder(wallet: string): Promise<{ ok: boolean; detail: string }> {
     // 1. Check Cache
     const cached = this.tokenCache.get(wallet);
@@ -311,12 +320,12 @@ export default class NekoChat implements Party.Server {
         });
         clearTimeout(timeout);
         if (!response.ok) {
-          rpcErrors.push(`${rpc}: HTTP ${response.status}`);
+          rpcErrors.push(`${this.rpcLabel(rpc)}: HTTP ${response.status}`);
           continue; // Try next endpoint
         }
         const data: any = await response.json();
         if (data.error) {
-          rpcErrors.push(`${rpc}: RPC ${JSON.stringify(data.error)}`);
+          rpcErrors.push(`${this.rpcLabel(rpc)}: RPC ${JSON.stringify(data.error)}`);
           continue;
         }
         // console.log(`[TOKEN CHECK] Response:`, JSON.stringify(data).substring(0, 300));
@@ -334,7 +343,7 @@ export default class NekoChat implements Party.Server {
         this.tokenCache.set(wallet, { ok: false, timestamp: Date.now() });
         return { ok: false, detail: `No token accounts found for mint ${TOKEN_MINT}` };
       } catch (err: any) {
-        rpcErrors.push(`${rpc}: ${err?.message || "request failed"}`);
+        rpcErrors.push(`${this.rpcLabel(rpc)}: ${err?.message || "request failed"}`);
         continue;
       }
     }
