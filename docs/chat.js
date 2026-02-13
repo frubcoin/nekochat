@@ -1538,16 +1538,21 @@ function initiateReaction(msgId, anchorBtn) {
     // Position it relative to the button
     const rect = anchorBtn.getBoundingClientRect();
     popover.style.position = 'fixed';
-    popover.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+    popover.style.top = (rect.bottom + 5) + 'px';
     popover.style.right = (window.innerWidth - rect.right) + 'px';
-    popover.style.zIndex = '1000';
+    popover.style.zIndex = '10000';
 
     const pickerOptions = {
         data: async () => {
-            const response = await fetch('https://cdn.jsdelivr.net/npm/@emoji-mart/data@latest/sets/14/native.json');
-            return response.json();
+            try {
+                const response = await fetch('https://cdn.jsdelivr.net/npm/@emoji-mart/data');
+                return await response.json();
+            } catch (err) {
+                console.error('[PICKER] Failed to load emoji data:', err);
+            }
         },
         onEmojiSelect: (emoji) => {
+            console.log('[PICKER] Selected emoji:', emoji.native);
             sendReaction(msgId, emoji.native);
             popover.remove();
             activeReactionPicker = null;

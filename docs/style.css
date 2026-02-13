@@ -535,6 +535,7 @@ body {
 
 /* Messages */
 .chat-msg {
+  position: relative;
   padding: 4px 0;
   animation: fadeIn 0.2s ease-out;
   word-wrap: break-word;
@@ -1669,7 +1670,8 @@ body {
 .msg-actions {
   position: absolute;
   right: 0;
-  top: 4px;
+  top: 50%;
+  transform: translateY(-50%);
   display: flex;
   gap: 4px;
   opacity: 0;
