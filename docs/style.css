@@ -2032,6 +2032,47 @@ body {
   color: var(--text-secondary);
 }
 
+#emoji-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 8px;
+  border-right: 1px solid var(--border);
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  width: 32px;
+  height: 32px;
+}
+
+.icon-btn:hover {
+  background: var(--bg-hover);
+  color: var(--text);
+}
+
+.icon-btn.active {
+  background: var(--bg-hover);
+  color: var(--accent);
+}
+
+/* Specific button Tweaks */
+#btn-appearance {
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
 input[type=range].scale-slider {
   flex: 1;
   accent-color: var(--text);

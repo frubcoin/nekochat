@@ -415,6 +415,17 @@ export default class NekoChat implements Party.Server {
 
       sender.send(JSON.stringify({ type: "history", messages: recent }));
 
+      // Send identity/role info to the user
+      sender.send(JSON.stringify({
+        type: "identity",
+        username,
+        wallet,
+        isOwner,
+        isAdmin,
+        isMod,
+        color
+      }));
+
       // ... (rest of join logic) ...
 
       // Broadcast join system message

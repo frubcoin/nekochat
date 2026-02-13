@@ -2,6 +2,12 @@
    tryl.chat — Client Script
    ═══════════════════════════════════ */
 
+// ═══ GLOBAL STATE ═══
+// User roles (populated on connection)
+let isOwner = false;
+let isAdmin = false;
+let isMod = false;
+
 // ═══ CONNECTION ═══
 const isLocal = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
 const PARTYKIT_HOST = isLocal ? "localhost:1999" : "nekochat.frubcoin.partykit.dev";
@@ -60,6 +66,18 @@ function connectWebSocket(roomId) {
         try { data = JSON.parse(event.data); } catch { return; }
 
         switch (data.type) {
+            case 'identity':
+                console.log('[IDENTITY] Role:', { isOwner: data.isOwner, isAdmin: data.isAdmin, isMod: data.isMod });
+                isOwner = data.isOwner;
+                isAdmin = data.isAdmin;
+                isMod = data.isMod;
+                if (data.color) userColor = data.color;
+                // Update UI if needed (e.g. show admin panel)
+                if (isAdmin || isOwner || isMod) {
+                    document.body.classList.add('is-staff');
+                }
+                break;
+
             case 'chat-message':
                 appendChatMessage(data, false);
                 scrollToBottom();
