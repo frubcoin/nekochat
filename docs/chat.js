@@ -667,31 +667,44 @@ function initCustomUI() {
 
     // Commands
     const btnCommands = document.getElementById('btn-commands');
-    const commandPopover = document.getElementById('command-popover');
-    console.log('[UI] Commands:', { btn: !!btnCommands, popover: !!commandPopover });
+    if (btnCommands) {
+        // Create popover in body if not exists
+        let popover = document.getElementById('command-popover');
+        if (!popover) {
+            popover = document.createElement('div');
+            popover.id = 'command-popover';
+            popover.className = 'hidden';
+            document.body.appendChild(popover);
+        }
 
-    if (btnCommands && commandPopover) {
         btnCommands.addEventListener('click', (e) => {
             console.log('[UI] Command button clicked');
             e.stopPropagation();
-            const isHidden = commandPopover.classList.contains('hidden');
 
             // Close others
             document.getElementById('emoji-picker-container')?.classList.add('hidden');
             document.getElementById('color-picker-popover')?.classList.add('hidden');
 
-            if (!isHidden) {
-                commandPopover.classList.add('hidden');
-            } else {
-                commandPopover.classList.remove('hidden');
-                updateCommandList(); // Helper to render list
+            if (!popover.classList.contains('hidden')) {
+                popover.classList.add('hidden');
+                return;
             }
+
+            // Position it
+            const rect = btnCommands.getBoundingClientRect();
+            // Popover width is ~250px. Align right edge with button right, or center
+            popover.style.position = 'fixed'; // Fixed to viewport
+            popover.style.bottom = (window.innerHeight - rect.top + 10) + 'px'; // Above button
+            popover.style.left = (rect.right - 250) + 'px'; // Offset left
+
+            popover.classList.remove('hidden');
+            updateCommandList();
         });
 
         // Close on outside click
         document.addEventListener('click', (e) => {
-            if (!commandPopover.contains(e.target) && e.target !== btnCommands) {
-                commandPopover.classList.add('hidden');
+            if (popover && !popover.contains(e.target) && e.target !== btnCommands) {
+                popover.classList.add('hidden');
             }
         });
     }
