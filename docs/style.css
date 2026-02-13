@@ -1780,6 +1780,18 @@ height: 40px;
 }
 
 /* SIDEBAR FOOTER */
+.#sidebar,
+#rooms-sidebar {
+  width: 280px;
+  /* Increased from 250px */
+  background: var(--bg-elevated);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 100;
+}
+
 .sidebar-footer {
   padding: 12px;
   border-top: 1px solid var(--border);
