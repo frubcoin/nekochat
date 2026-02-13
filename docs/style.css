@@ -626,11 +626,22 @@ body {
 }
 
 #typing-indicator {
-  min-height: 18px;
-  padding: 0 24px 8px;
+  position: absolute;
+  bottom: 80px;
+  left: 24px;
+  z-index: 10;
+  max-width: 90%;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(0, 0, 0, 0.7);
   color: var(--text-muted);
-  font-size: 12px;
-  font-style: italic;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  transition: opacity 0.2s;
 }
 
 .msg-text a {

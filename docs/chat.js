@@ -1063,16 +1063,28 @@ function updateTypingIndicator(users) {
     if (!DOM.typingIndicator) return;
 
     const activeUsers = users.filter((u) => u && u !== currentUsername);
-    if (activeUsers.length === 0) {
+    const count = activeUsers.length;
+
+    if (count === 0) {
         DOM.typingIndicator.classList.add('hidden');
         DOM.typingIndicator.textContent = '';
         return;
     }
 
     let label = '';
-    if (activeUsers.length === 1) label = `${activeUsers[0]} is typing…`;
-    else if (activeUsers.length === 2) label = `${activeUsers[0]} and ${activeUsers[1]} are typing…`;
-    else label = `${activeUsers[0]} and ${activeUsers.length - 1} others are typing…`;
+    const maxShow = 10;
+
+    if (count === 1) {
+        label = `${activeUsers[0]} is typing…`;
+    } else if (count <= maxShow) {
+        const last = activeUsers[count - 1];
+        const others = activeUsers.slice(0, count - 1);
+        label = `${others.join(', ')} and ${last} are typing…`;
+    } else {
+        const shown = activeUsers.slice(0, maxShow);
+        const remainder = count - maxShow;
+        label = `${shown.join(', ')} and ${remainder} others are typing…`;
+    }
 
     DOM.typingIndicator.textContent = label;
     DOM.typingIndicator.classList.remove('hidden');
