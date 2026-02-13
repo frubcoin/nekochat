@@ -230,6 +230,9 @@ const sentHistory = [];
 let historyIndex = -1;
 let currentDraft = '';
 
+// Reply state
+let replyContext = null; // { id, username, text }
+
 const COMMANDS = [
     '/whitelist',
     '/whitelist add',
@@ -999,8 +1002,16 @@ DOM.chatForm.addEventListener('submit', (e) => {
     currentDraft = '';
 
     if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'chat', text: msg }));
+        const payload = { type: 'chat', text: msg };
+        if (replyContext) {
+            payload.replyTo = replyContext;
+        }
+        ws.send(JSON.stringify(payload));
     }
+
+    // Clear reply state
+    cancelReply();
+
     sendTypingState(false);
     if (typingTimeout) {
         clearTimeout(typingTimeout);

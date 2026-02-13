@@ -1427,8 +1427,115 @@ body {
   opacity: 1;
 }
 
+
+/* ═══ REPLY BAR ═══ */
+#reply-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.4);
+  padding: 8px 12px;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid var(--border);
+  border-bottom: none;
+  font-size: 13px;
+  color: var(--text-muted);
+  width: 100%;
+  /* Ensure it spans the width */
+}
+
+#reply-bar.hidden {
+  display: none;
+}
+
+.reply-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow: hidden;
+}
+
+.reply-to {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.reply-to b {
+  color: var(--text-main);
+}
+
+#reply-text-preview {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-main);
+  max-width: 300px;
+}
+
+#btn-cancel-reply {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 4px;
+  line-height: 1;
+}
+
+#btn-cancel-reply:hover {
+  color: var(--accent);
+}
+
+/* Update Input Area to connect with reply bar */
+#chat-input-area {
+  border-radius: 24px;
+  /* Default */
+  transition: border-radius 0.2s;
+}
+
+/* When reply bar is visible, flatten top corners of input */
+/* We need a class on the input area or just rely on the visual stack */
+/* Since reply bar is inside the form but outside input-area, we can style sibling */
+#reply-bar:not(.hidden)+#chat-input-area {
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  border-top: none;
+  /* Merge borders */
+}
+
+/* ═══ COMPACT MESSAGES ═══ */
+.chat-msg.compact {
+  margin-top: 2px;
+  /* reduced from 8px */
+}
+
+.chat-msg.compact .msg-header {
+  display: none;
+}
+
+/* ═══ REPLY IN CHAT ═══ */
+.msg-reply-context {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+  padding-left: 8px;
+  border-left: 2px solid var(--accent);
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+
+.msg-reply-context:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
 /* AI Status */
 #ai-status {
+
   font-size: 11px;
   font-weight: 500;
   margin-top: auto;
