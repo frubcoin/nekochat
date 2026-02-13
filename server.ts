@@ -678,6 +678,12 @@ export default class NekoChat implements Party.Server {
         return;
       }
 
+      // Block /clear for normal users
+      if (parsed.text.startsWith("/clear")) {
+        sender.send(JSON.stringify({ type: "system-message", text: "⛔ You must be a moderator to use /clear." }));
+        return;
+      }
+
       // Check if muted
       if (this.mutedUsers.has(username)) {
         sender.send(JSON.stringify({ type: "system-message", text: "🤐 You are muted and cannot chat." }));
@@ -1136,7 +1142,7 @@ export default class NekoChat implements Party.Server {
     }
 
     // WHITELIST / BAN / MUTE / CLEAR (Privileged)
-    if (command === "/whitelist" || command === "/aa") {
+    if (command === "/whitelist" || command === "/aa" || command === "/ra") {
       let stored = await this.getStoredMemberWallets();
 
       // 1. /aa <wallet> shortcut
@@ -1149,6 +1155,20 @@ export default class NekoChat implements Party.Server {
           sender.send(JSON.stringify({ type: "system-message", text: `✅ [AA] Added ${cleanTarget} to whitelist.` }));
         } else if (stored.includes(cleanTarget)) {
           sender.send(JSON.stringify({ type: "system-message", text: `⚠️ ${cleanTarget} is already whitelisted.` }));
+        }
+        return;
+      }
+
+      // 1b. /ra <wallet> shortcut
+      if (command === "/ra") {
+        const target = parts[1] || "";
+        const cleanTarget = target.trim();
+        if (cleanTarget && stored.includes(cleanTarget)) {
+          stored = stored.filter(a => a !== cleanTarget);
+          await this.room.storage.put("storedMemberWallets", stored);
+          sender.send(JSON.stringify({ type: "system-message", text: `❌ [RA] Removed ${cleanTarget} from whitelist.` }));
+        } else {
+          sender.send(JSON.stringify({ type: "system-message", text: `⚠️ ${cleanTarget} is not in the whitelist.` }));
         }
         return;
       }
