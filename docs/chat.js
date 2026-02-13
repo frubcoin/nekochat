@@ -8,7 +8,7 @@ const PARTYKIT_HOST = isLocal ? "localhost:1999" : "nekochat.frubcoin.partykit.d
 const WS_PROTOCOL = isLocal ? "ws" : "wss";
 
 // ═══ SOLANA / TOKEN GATING ═══
-const HELIUS_RPC_URL = "https://mainnet.helius-rpc.com/?api-key=cc4ba0bb-9e76-44be-8681-511665f1c262";
+// const HELIUS_RPC_URL = "..."; // Moved to server
 const TOKEN_MINT = "UwU8RVXB69Y6Dcju6cN2Qef6fykkq6UUNpB15rZku6Z";
 
 const ROOMS = [
@@ -271,38 +271,16 @@ const COMMANDS = [
 ];
 
 // ═══ TOKEN CHECK ═══
+// ═══ TOKEN CHECK ═══
 async function checkTokenBalance(walletAddress) {
+    if (!walletAddress) return false;
     try {
-        // console.log('[TOKEN] Checking balance for', walletAddress, 'mint:', TOKEN_MINT);
-        const response = await fetch(HELIUS_RPC_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getTokenAccountsByOwner',
-                params: [
-                    walletAddress,
-                    { mint: TOKEN_MINT },
-                    { encoding: 'jsonParsed' }
-                ]
-            })
-        });
+        // Use server proxy instead of direct Helius call
+        const response = await fetch(`${WS_PROTOCOL}://${PARTYKIT_HOST}/party/check-token?wallet=${walletAddress}`);
+        if (!response.ok) return false;
+
         const data = await response.json();
-        // console.log('[TOKEN] RPC response:', JSON.stringify(data).substring(0, 500));
-        if (data.error) {
-            console.error('[TOKEN] RPC error:', data.error);
-            return false;
-        }
-        if (data.result && data.result.value && data.result.value.length > 0) {
-            for (const account of data.result.value) {
-                const amount = account.account.data.parsed.info.tokenAmount.uiAmount;
-                // console.log('[TOKEN] Found account with amount:', amount);
-                if (amount > 0) return true;
-            }
-        }
-        // console.log('[TOKEN] No token accounts found or all balances are 0');
-        return false;
+        return data.ok === true;
     } catch (err) {
         console.error('[TOKEN] Check failed:', err);
         return false;

@@ -674,335 +674,8 @@ export default class NekoChat implements Party.Server {
 
       // Handle Admin/Mod/Owner Commands
       if ((isAdmin || isMod || isOwner) && parsed.text.startsWith("/")) {
-        const parts = parsed.text.trim().split(/\s+/);
-        const command = parts[0].toLowerCase();
-        const subCommand = parts[1];
-        const val = parts.slice(2).join(" ");
-        const fullArg = parts.slice(1).join(" ");
-
-        // ADMIN/OWNER: Manage Moderators
-        if ((isAdmin || isOwner) && command === "/mod") {
-          const storedMods = await this.getStoredModWallets();
-
-          if (subCommand === "add") {
-            const target = parts[2] || "";
-            const cleanTarget = target.trim();
-            if (cleanTarget && !storedMods.includes(cleanTarget)) {
-              storedMods.push(cleanTarget);
-              await this.room.storage.put("storedModWallets", storedMods);
-
-              let found = false;
-              for (const conn of this.room.getConnections()) {
-                const state = conn.state as any;
-                if (state && state.wallet === cleanTarget) {
-                  conn.setState({ ...state, isMod: true });
-                  found = true;
-                }
-              }
-              if (found) this.broadcastUserList();
-
-              sender.send(JSON.stringify({ type: "system-message", text: `✅ Added MOD: ${cleanTarget}` }));
-            } else {
-              sender.send(JSON.stringify({ type: "system-message", text: `⚠️ Invalid or already mod: ${cleanTarget}` }));
-            }
-          } else if (subCommand === "remove") {
-            const target = parts[2] || "";
-            const cleanTarget = target.trim();
-            const newMods = storedMods.filter(m => m !== cleanTarget);
-            await this.room.storage.put("storedModWallets", newMods);
-
-            let found = false;
-            for (const conn of this.room.getConnections()) {
-              const state = conn.state as any;
-              if (state && state.wallet === cleanTarget) {
-                conn.setState({ ...state, isMod: false });
-                found = true;
-              }
-            }
-            if (found) this.broadcastUserList();
-
-            sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed MOD: ${cleanTarget}` }));
-          }
-          return;
-        }
-
-        // OWNER/ADMIN: Manage Admins
-        if ((isAdmin || isOwner) && command === "/admin") {
-          const storedAdmins = await this.getStoredAdminWallets();
-
-          if (subCommand === "add") {
-            if (!isOwner) {
-              sender.send(JSON.stringify({ type: "system-message", text: `⛔ Only the Owner can add admins.` }));
-              return;
-            }
-            const target = parts[2] || "";
-            const cleanTarget = target.trim();
-
-            if (cleanTarget && !storedAdmins.includes(cleanTarget)) {
-              storedAdmins.push(cleanTarget);
-              await this.room.storage.put("storedAdminWallets", storedAdmins);
-
-              let found = false;
-              for (const conn of this.room.getConnections()) {
-                const state = conn.state as any;
-                if (state && state.wallet === cleanTarget) {
-                  conn.setState({ ...state, isAdmin: true });
-                  conn.send(JSON.stringify({ type: "admin-mode" }));
-                  found = true;
-                }
-              }
-              if (found) this.broadcastUserList();
-
-              sender.send(JSON.stringify({ type: "system-message", text: `✅ Added ADMIN: ${cleanTarget}` }));
-            } else {
-              sender.send(JSON.stringify({ type: "system-message", text: `⚠️ Invalid or already admin: ${cleanTarget}` }));
-            }
-          } else if (subCommand === "remove") {
-            if (!isOwner) {
-              sender.send(JSON.stringify({ type: "system-message", text: `⛔ Only the Owner can remove admins.` }));
-              return;
-            }
-            const target = parts[2] || "";
-            const cleanTarget = target.trim();
-            const newAdmins = storedAdmins.filter(a => a !== cleanTarget);
-            await this.room.storage.put("storedAdminWallets", newAdmins);
-
-            // Immediate update
-            let found = false;
-            for (const conn of this.room.getConnections()) {
-              const state = conn.state as any;
-              if (state && state.wallet === cleanTarget) {
-                conn.setState({ ...state, isAdmin: false });
-                // We don't send "admin-mode" false, just remove privileges
-                found = true;
-              }
-            }
-            if (found) this.broadcastUserList();
-
-            sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed ADMIN: ${cleanTarget}` }));
-          }
-          return;
-        }
-
-        if (command === "/permission") {
-          if (subCommand !== "url") {
-            sender.send(JSON.stringify({ type: "system-message", text: "Usage: /permission url <wallet>" }));
-            return;
-          }
-
-          const target = (parts[2] || "").trim();
-          if (!target) {
-            sender.send(JSON.stringify({ type: "system-message", text: "Usage: /permission url <wallet>" }));
-            return;
-          }
-
-          const storedPermissions = await this.getStoredUrlPermissionWallets();
-          if (storedPermissions.includes(target)) {
-            sender.send(JSON.stringify({ type: "system-message", text: `⚠️ URL permission already granted: ${target}` }));
-            return;
-          }
-
-          storedPermissions.push(target);
-          await this.room.storage.put("storedUrlPermissionWallets", storedPermissions);
-
-          for (const conn of this.room.getConnections()) {
-            const state = conn.state as any;
-            if (state && state.wallet === target) {
-              conn.setState({ ...state, canEmbedUrls: true });
-            }
-          }
-
-          sender.send(JSON.stringify({ type: "system-message", text: `✅ URL embed permission granted to ${target}` }));
-          return;
-        }
-
-        // WHITELIST / BAN / MUTE / CLEAR (Privileged)
-        if (command === "/whitelist" || command === "/aa") {
-          let stored = await this.getStoredMemberWallets();
-
-          // 1. /aa <wallet> shortcut
-          if (command === "/aa") {
-            const target = parts[1] || "";
-            const cleanTarget = target.trim();
-            if (cleanTarget && !stored.includes(cleanTarget)) {
-              stored.push(cleanTarget);
-              await this.room.storage.put("storedMemberWallets", stored);
-              sender.send(JSON.stringify({ type: "system-message", text: `✅ [AA] Added ${cleanTarget} to whitelist.` }));
-            } else if (stored.includes(cleanTarget)) {
-              sender.send(JSON.stringify({ type: "system-message", text: `⚠️ ${cleanTarget} is already whitelisted.` }));
-            }
-            return;
-          }
-
-          // 2. /whitelist bulk <csv>
-          if (subCommand === "bulk") {
-            const addrs = val.split(",").map((a: string) => a.trim()).filter(Boolean);
-            let count = 0;
-            addrs.forEach((a: string) => {
-              if (!stored.includes(a)) {
-                stored.push(a);
-                count++;
-              }
-            });
-            await this.room.storage.put("storedMemberWallets", stored);
-            sender.send(JSON.stringify({ type: "system-message", text: `✅ Bulk added ${count} addresses.` }));
-            return;
-          }
-
-          // 3. /whitelist remove <wallet>
-          if (subCommand === "remove") {
-            stored = stored.filter((a: string) => a !== val);
-            await this.room.storage.put("storedMemberWallets", stored);
-            sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed ${val} from whitelist.` }));
-            return;
-          }
-
-          // 4. Default: /whitelist <wallet> (or add)
-          let target = val;
-          // Handle "room 1 <wallet>" pattern or similar
-          if (target.toLowerCase().startsWith("room ")) {
-            const parts = target.split(" ");
-            if (parts.length >= 3) {
-              target = parts[parts.length - 1];
-            }
-          }
-
-          const cleanTarget = target.trim();
-          if (cleanTarget && !stored.includes(cleanTarget)) {
-            stored.push(cleanTarget);
-            await this.room.storage.put("storedMemberWallets", stored);
-            sender.send(JSON.stringify({ type: "system-message", text: `✅ Added ${cleanTarget} to whitelist.` }));
-          } else if (cleanTarget) {
-            sender.send(JSON.stringify({ type: "system-message", text: `⚠️ ${cleanTarget} is already whitelisted.` }));
-          }
-          return;
-        }
-
-        if (command === "/ban") {
-          const target = parts[1] || "";
-          const cleanTarget = target.trim();
-          if (!cleanTarget) return;
-
-          // Remove from whitelist
-          let stored = await this.getStoredMemberWallets();
-          if (stored.includes(cleanTarget)) {
-            stored = stored.filter(w => w !== cleanTarget);
-            await this.room.storage.put("storedMemberWallets", stored);
-            sender.send(JSON.stringify({ type: "system-message", text: `🔨 Banned (removed from whitelist): ${cleanTarget}` }));
-
-            // Kick if online
-            for (const conn of this.room.getConnections()) {
-              const state = conn.state as any;
-              if (state && state.wallet === cleanTarget) {
-                conn.close(1008, "Banned by moderator");
-              }
-            }
-          } else {
-            sender.send(JSON.stringify({ type: "system-message", text: `⚠️ ${cleanTarget} is not on the whitelist.` }));
-          }
-          return;
-        }
-
-        if (command === "/mute") {
-          const target = parts[1];
-          if (this.mutedUsers.has(target)) {
-            this.mutedUsers.delete(target);
-            sender.send(JSON.stringify({ type: "system-message", text: `🔊 Unmuted ${target}.` }));
-          } else {
-            this.mutedUsers.add(target);
-            sender.send(JSON.stringify({ type: "system-message", text: `🔇 Muted ${target}.` }));
-          }
-          return;
-        }
-
-        if (command === "/clear") {
-          const arg = parts[1];
-          let history = ((await this.room.storage.get("chatHistory")) as any[]) || [];
-
-          // 1. /clear (No args) -> Clear all
-          if (!arg) {
-            await this.room.storage.delete("chatHistory");
-            this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
-            sender.send(JSON.stringify({ type: "system-message", text: "🧼 Chat history cleared." }));
-            return;
-          }
-
-          // 2. /clear <number> -> Clear last N messages
-          if (/^\d+$/.test(arg)) {
-            const count = parseInt(arg, 10);
-            if (count > 0) {
-              // Remove the last N messages
-              // history is [oldest, ..., newest]
-              // we want to remove from the end
-              if (count >= history.length) {
-                history = [];
-              } else {
-                history = history.slice(0, history.length - count);
-              }
-
-              await this.room.storage.put("chatHistory", history);
-
-              // Refresh clients: Clear then send remaining history
-              this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
-              // Send history in a slightly delayed distinct message or same tick
-              // "history" message expects { type: "history", messages: [...] }
-              const safeHistory = history.map((msg: any) => {
-                const safe = { ...msg };
-                delete safe.wallet;
-                return safe;
-              });
-              this.room.broadcast(JSON.stringify({ type: "history", messages: safeHistory }));
-
-              sender.send(JSON.stringify({ type: "system-message", text: `🧼 Cleared last ${count} messages.` }));
-              return;
-            }
-          }
-
-          // 3. /clear <wallet> -> Clear messages from specific wallet
-          // We assume arg is a wallet address (string)
-          if (arg.length > 20) { // Basic length check for wallet/base58
-            const targetWallet = arg;
-            const initialCount = history.length;
-            // Filter out messages from this wallet
-            history = history.filter((msg: any) => msg.wallet !== targetWallet);
-
-            if (history.length !== initialCount) {
-              await this.room.storage.put("chatHistory", history);
-              this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
-
-              const safeHistory = history.map((msg: any) => {
-                const safe = { ...msg };
-                delete safe.wallet;
-                return safe;
-              });
-              this.room.broadcast(JSON.stringify({ type: "history", messages: safeHistory }));
-
-              sender.send(JSON.stringify({ type: "system-message", text: `🧼 Cleared messages from ${targetWallet}.` }));
-            } else {
-              sender.send(JSON.stringify({ type: "system-message", text: `⚠️ No messages found from ${targetWallet} (or messages didn't have wallet attached).` }));
-            }
-            return;
-          }
-
-          sender.send(JSON.stringify({ type: "system-message", text: "Usage: /clear, /clear <number>, or /clear <wallet>" }));
-          return;
-        }
-
-        if (command === "/pin") {
-          this.pinnedMessage = fullArg;
-          await this.room.storage.put("pinnedMessage", fullArg);
-          this.room.broadcast(JSON.stringify({ type: "pinned-update", text: fullArg }));
-          sender.send(JSON.stringify({ type: "system-message", text: "📌 Message pinned." }));
-          return;
-        }
-
-        if (command === "/unpin") {
-          this.pinnedMessage = null;
-          await this.room.storage.delete("pinnedMessage");
-          this.room.broadcast(JSON.stringify({ type: "pinned-update", text: null }));
-          sender.send(JSON.stringify({ type: "system-message", text: "📍 Message unpinned." }));
-          return;
-        }
+        await this.handleCommand(parsed.text, sender, { isAdmin, isMod, isOwner, wallet });
+        return;
       }
 
       // Check if muted
@@ -1172,12 +845,25 @@ export default class NekoChat implements Party.Server {
   async onRequest(req: Party.Request) {
     if (req.method === "GET") {
       const url = new URL(req.url);
-      if (url.pathname.endsWith("/wallets")) {
-        // Return persistent log of all wallets that ever connected
-        const walletLog = (await this.room.storage.get("walletLog") as Record<string, string>) || {};
-        return new Response(JSON.stringify(walletLog, null, 2), {
+
+      // Secure Token Check (Proxy)
+      if (url.pathname.endsWith("/check-token")) {
+        const wallet = url.searchParams.get("wallet");
+        if (!wallet) {
+          return new Response("Missing wallet", { status: 400 });
+        }
+
+        // Use existing server-side verification logic
+        const result = await this.verifyTokenHolder(wallet);
+        return new Response(JSON.stringify({
+          ok: result.ok,
+          detail: result.detail
+        }), {
           status: 200,
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": "*" // Allow client access
+          },
         });
       }
     }
@@ -1303,6 +989,330 @@ export default class NekoChat implements Party.Server {
     this.totalRounds = 1;
     this.currentRound = 0;
     this.roundWins.clear();
+  }
+
+  async handleCommand(text: string, sender: Party.Connection, ctx: { isAdmin: boolean, isMod: boolean, isOwner: boolean, wallet?: string }) {
+    const parts = text.trim().split(/\s+/);
+    const command = parts[0].toLowerCase();
+    const subCommand = parts[1];
+    const val = parts.slice(2).join(" ");
+    const fullArg = parts.slice(1).join(" ");
+
+    const { isAdmin, isMod, isOwner } = ctx;
+
+    // ADMIN/OWNER: Manage Moderators
+    if ((isAdmin || isOwner) && command === "/mod") {
+      const storedMods = await this.getStoredModWallets();
+
+      if (subCommand === "add") {
+        const target = parts[2] || "";
+        const cleanTarget = target.trim();
+        if (cleanTarget && !storedMods.includes(cleanTarget)) {
+          storedMods.push(cleanTarget);
+          await this.room.storage.put("storedModWallets", storedMods);
+
+          let found = false;
+          for (const conn of this.room.getConnections()) {
+            const state = conn.state as any;
+            if (state && state.wallet === cleanTarget) {
+              conn.setState({ ...state, isMod: true });
+              found = true;
+            }
+          }
+          if (found) this.broadcastUserList();
+
+          sender.send(JSON.stringify({ type: "system-message", text: `✅ Added MOD: ${cleanTarget}` }));
+        } else {
+          sender.send(JSON.stringify({ type: "system-message", text: `⚠️ Invalid or already mod: ${cleanTarget}` }));
+        }
+      } else if (subCommand === "remove") {
+        const target = parts[2] || "";
+        const cleanTarget = target.trim();
+        const newMods = storedMods.filter(m => m !== cleanTarget);
+        await this.room.storage.put("storedModWallets", newMods);
+
+        let found = false;
+        for (const conn of this.room.getConnections()) {
+          const state = conn.state as any;
+          if (state && state.wallet === cleanTarget) {
+            conn.setState({ ...state, isMod: false });
+            found = true;
+          }
+        }
+        if (found) this.broadcastUserList();
+
+        sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed MOD: ${cleanTarget}` }));
+      }
+      return;
+    }
+
+    // OWNER/ADMIN: Manage Admins
+    if ((isAdmin || isOwner) && command === "/admin") {
+      const storedAdmins = await this.getStoredAdminWallets();
+
+      if (subCommand === "add") {
+        if (!isOwner) {
+          sender.send(JSON.stringify({ type: "system-message", text: `⛔ Only the Owner can add admins.` }));
+          return;
+        }
+        const target = parts[2] || "";
+        const cleanTarget = target.trim();
+
+        if (cleanTarget && !storedAdmins.includes(cleanTarget)) {
+          storedAdmins.push(cleanTarget);
+          await this.room.storage.put("storedAdminWallets", storedAdmins);
+
+          let found = false;
+          for (const conn of this.room.getConnections()) {
+            const state = conn.state as any;
+            if (state && state.wallet === cleanTarget) {
+              conn.setState({ ...state, isAdmin: true });
+              conn.send(JSON.stringify({ type: "admin-mode" }));
+              found = true;
+            }
+          }
+          if (found) this.broadcastUserList();
+
+          sender.send(JSON.stringify({ type: "system-message", text: `✅ Added ADMIN: ${cleanTarget}` }));
+        } else {
+          sender.send(JSON.stringify({ type: "system-message", text: `⚠️ Invalid or already admin: ${cleanTarget}` }));
+        }
+      } else if (subCommand === "remove") {
+        if (!isOwner) {
+          sender.send(JSON.stringify({ type: "system-message", text: `⛔ Only the Owner can remove admins.` }));
+          return;
+        }
+        const target = parts[2] || "";
+        const cleanTarget = target.trim();
+        const newAdmins = storedAdmins.filter(a => a !== cleanTarget);
+        await this.room.storage.put("storedAdminWallets", newAdmins);
+
+        // Immediate update
+        let found = false;
+        for (const conn of this.room.getConnections()) {
+          const state = conn.state as any;
+          if (state && state.wallet === cleanTarget) {
+            conn.setState({ ...state, isAdmin: false });
+            found = true;
+          }
+        }
+        if (found) this.broadcastUserList();
+
+        sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed ADMIN: ${cleanTarget}` }));
+      }
+      return;
+    }
+
+    if (command === "/permission") {
+      if (subCommand !== "url") {
+        sender.send(JSON.stringify({ type: "system-message", text: "Usage: /permission url <wallet>" }));
+        return;
+      }
+
+      const target = (parts[2] || "").trim();
+      if (!target) {
+        sender.send(JSON.stringify({ type: "system-message", text: "Usage: /permission url <wallet>" }));
+        return;
+      }
+
+      const storedPermissions = await this.getStoredUrlPermissionWallets();
+      if (storedPermissions.includes(target)) {
+        sender.send(JSON.stringify({ type: "system-message", text: `⚠️ URL permission already granted: ${target}` }));
+        return;
+      }
+
+      storedPermissions.push(target);
+      await this.room.storage.put("storedUrlPermissionWallets", storedPermissions);
+
+      for (const conn of this.room.getConnections()) {
+        const state = conn.state as any;
+        if (state && state.wallet === target) {
+          conn.setState({ ...state, canEmbedUrls: true });
+        }
+      }
+
+      sender.send(JSON.stringify({ type: "system-message", text: `✅ URL embed permission granted to ${target}` }));
+      return;
+    }
+
+    // WHITELIST / BAN / MUTE / CLEAR (Privileged)
+    if (command === "/whitelist" || command === "/aa") {
+      let stored = await this.getStoredMemberWallets();
+
+      // 1. /aa <wallet> shortcut
+      if (command === "/aa") {
+        const target = parts[1] || "";
+        const cleanTarget = target.trim();
+        if (cleanTarget && !stored.includes(cleanTarget)) {
+          stored.push(cleanTarget);
+          await this.room.storage.put("storedMemberWallets", stored);
+          sender.send(JSON.stringify({ type: "system-message", text: `✅ [AA] Added ${cleanTarget} to whitelist.` }));
+        } else if (stored.includes(cleanTarget)) {
+          sender.send(JSON.stringify({ type: "system-message", text: `⚠️ ${cleanTarget} is already whitelisted.` }));
+        }
+        return;
+      }
+
+      // 2. /whitelist bulk <csv>
+      if (subCommand === "bulk") {
+        const addrs = val.split(",").map((a: string) => a.trim()).filter(Boolean);
+        let count = 0;
+        addrs.forEach((a: string) => {
+          if (!stored.includes(a)) {
+            stored.push(a);
+            count++;
+          }
+        });
+        await this.room.storage.put("storedMemberWallets", stored);
+        sender.send(JSON.stringify({ type: "system-message", text: `✅ Bulk added ${count} addresses.` }));
+        return;
+      }
+
+      // 3. /whitelist remove <wallet>
+      if (subCommand === "remove") {
+        stored = stored.filter((a: string) => a !== val);
+        await this.room.storage.put("storedMemberWallets", stored);
+        sender.send(JSON.stringify({ type: "system-message", text: `❌ Removed ${val} from whitelist.` }));
+        return;
+      }
+
+      // 4. Default: /whitelist <wallet> (or add)
+      let target = val;
+      if (target.toLowerCase().startsWith("room ")) {
+        const parts = target.split(" ");
+        if (parts.length >= 3) {
+          target = parts[parts.length - 1];
+        }
+      }
+
+      const cleanTarget = target.trim();
+      if (cleanTarget && !stored.includes(cleanTarget)) {
+        stored.push(cleanTarget);
+        await this.room.storage.put("storedMemberWallets", stored);
+        sender.send(JSON.stringify({ type: "system-message", text: `✅ Added ${cleanTarget} to whitelist.` }));
+      } else if (cleanTarget) {
+        sender.send(JSON.stringify({ type: "system-message", text: `⚠️ ${cleanTarget} is already whitelisted.` }));
+      }
+      return;
+    }
+
+    if (command === "/ban") {
+      const target = parts[1] || "";
+      const cleanTarget = target.trim();
+      if (!cleanTarget) return;
+
+      // Remove from whitelist
+      let stored = await this.getStoredMemberWallets();
+      if (stored.includes(cleanTarget)) {
+        stored = stored.filter(w => w !== cleanTarget);
+        await this.room.storage.put("storedMemberWallets", stored);
+        sender.send(JSON.stringify({ type: "system-message", text: `🔨 Banned (removed from whitelist): ${cleanTarget}` }));
+
+        // Kick if online
+        for (const conn of this.room.getConnections()) {
+          const state = conn.state as any;
+          if (state && state.wallet === cleanTarget) {
+            conn.close(1008, "Banned by moderator");
+          }
+        }
+      } else {
+        sender.send(JSON.stringify({ type: "system-message", text: `⚠️ ${cleanTarget} is not on the whitelist.` }));
+      }
+      return;
+    }
+
+    if (command === "/mute") {
+      const target = parts[1];
+      if (this.mutedUsers.has(target)) {
+        this.mutedUsers.delete(target);
+        sender.send(JSON.stringify({ type: "system-message", text: `🔊 Unmuted ${target}.` }));
+      } else {
+        this.mutedUsers.add(target);
+        sender.send(JSON.stringify({ type: "system-message", text: `🔇 Muted ${target}.` }));
+      }
+      return;
+    }
+
+    if (command === "/clear") {
+      const arg = parts[1];
+      let history = ((await this.room.storage.get("chatHistory")) as any[]) || [];
+
+      // 1. /clear (No args) -> Clear all
+      if (!arg) {
+        await this.room.storage.delete("chatHistory");
+        this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
+        sender.send(JSON.stringify({ type: "system-message", text: "🧼 Chat history cleared." }));
+        return;
+      }
+
+      // 2. /clear <number> -> Clear last N messages
+      if (/^\d+$/.test(arg)) {
+        const count = parseInt(arg, 10);
+        if (count > 0) {
+          if (count >= history.length) {
+            history = [];
+          } else {
+            history = history.slice(0, history.length - count);
+          }
+
+          await this.room.storage.put("chatHistory", history);
+
+          this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
+          const safeHistory = history.map((msg: any) => {
+            const safe = { ...msg };
+            if (!ctx.isAdmin && !ctx.isMod && !ctx.isOwner) delete safe.wallet;
+            return safe;
+          });
+          this.room.broadcast(JSON.stringify({ type: "history", messages: safeHistory }));
+
+          sender.send(JSON.stringify({ type: "system-message", text: `🧼 Cleared last ${count} messages.` }));
+          return;
+        }
+      }
+
+      // 3. /clear <wallet>
+      if (arg.length > 20) {
+        const targetWallet = arg;
+        const initialCount = history.length;
+        history = history.filter((msg: any) => msg.wallet !== targetWallet);
+
+        if (history.length !== initialCount) {
+          await this.room.storage.put("chatHistory", history);
+          this.room.broadcast(JSON.stringify({ type: "clear-chat" }));
+
+          const safeHistory = history.map((msg: any) => {
+            const safe = { ...msg };
+            if (!ctx.isAdmin && !ctx.isMod && !ctx.isOwner) delete safe.wallet;
+            return safe;
+          });
+          this.room.broadcast(JSON.stringify({ type: "history", messages: safeHistory }));
+
+          sender.send(JSON.stringify({ type: "system-message", text: `🧼 Cleared messages from ${targetWallet}.` }));
+        } else {
+          sender.send(JSON.stringify({ type: "system-message", text: `⚠️ No messages found from ${targetWallet}.` }));
+        }
+        return;
+      }
+
+      sender.send(JSON.stringify({ type: "system-message", text: "Usage: /clear, /clear <number>, or /clear <wallet>" }));
+      return;
+    }
+
+    if (command === "/pin") {
+      this.pinnedMessage = fullArg;
+      await this.room.storage.put("pinnedMessage", fullArg);
+      this.room.broadcast(JSON.stringify({ type: "pinned-update", text: fullArg }));
+      sender.send(JSON.stringify({ type: "system-message", text: "📌 Message pinned." }));
+      return;
+    }
+
+    if (command === "/unpin") {
+      this.pinnedMessage = null;
+      await this.room.storage.delete("pinnedMessage");
+      this.room.broadcast(JSON.stringify({ type: "pinned-update", text: null }));
+      sender.send(JSON.stringify({ type: "system-message", text: "📍 Message unpinned." }));
+      return;
+    }
   }
 }
 
