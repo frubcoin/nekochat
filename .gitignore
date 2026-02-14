@@ -4,3 +4,11 @@ dist
 .env
 tools
 server.ts
+
+# Local design asset SVGs (keep local, do not track)
+docs/Arrow Alt Circle Right.svg
+docs/Arrow Down.svg
+docs/Arrow Up.svg
+docs/Comments.svg
+docs/Face Thinking.svg
+docs/WEB 3.svg
