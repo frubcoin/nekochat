@@ -80,6 +80,8 @@ function connectWebSocket(roomId) {
     });
 
     ws.addEventListener('message', (event) => {
+        // Ignore messages from stale WebSockets (e.g. previous room/session socket).
+        if (ws !== thisWs) return;
         let data;
         try { data = JSON.parse(event.data); } catch { return; }
 
