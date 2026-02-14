@@ -293,6 +293,10 @@ const DOM = {
 let userLanguage = 'en';
 let translationEnabled = false;
 let currentUsername = '';
+const TRANSLATION_CACHE_KEY = 'chat_translation_cache_v1';
+const TRANSLATION_CACHE_MAX_ENTRIES = 1000;
+const TRANSLATION_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+let translationCache = {};
 try {
     const savedName = localStorage.getItem('chat_username') || '';
     if (savedName && DOM.usernameInput) {
@@ -305,7 +309,66 @@ try {
     }
     const savedTranslation = localStorage.getItem('chat_translation_enabled');
     translationEnabled = savedTranslation === '1';
+    const rawTranslationCache = localStorage.getItem(TRANSLATION_CACHE_KEY);
+    if (rawTranslationCache) {
+        translationCache = JSON.parse(rawTranslationCache) || {};
+    }
 } catch (e) { }
+
+function saveTranslationCache() {
+    try {
+        localStorage.setItem(TRANSLATION_CACHE_KEY, JSON.stringify(translationCache));
+    } catch (e) { }
+}
+
+function getTranslationCacheKey(roomId, lang, msgId) {
+    return `${roomId}|${lang}|${msgId}`;
+}
+
+function pruneTranslationCache() {
+    const now = Date.now();
+    const entries = Object.entries(translationCache).filter(([_, v]) => v && typeof v === 'object');
+
+    for (const [key, value] of entries) {
+        if (!value.updatedAt || (now - value.updatedAt) > TRANSLATION_CACHE_TTL_MS) {
+            delete translationCache[key];
+        }
+    }
+
+    const remaining = Object.entries(translationCache);
+    if (remaining.length <= TRANSLATION_CACHE_MAX_ENTRIES) return;
+
+    remaining
+        .sort((a, b) => (a[1].updatedAt || 0) - (b[1].updatedAt || 0))
+        .slice(0, remaining.length - TRANSLATION_CACHE_MAX_ENTRIES)
+        .forEach(([key]) => delete translationCache[key]);
+}
+
+function cacheTranslatedMessage(roomId, lang, msgId, originalText, translatedText) {
+    if (!roomId || !lang || !msgId || !translatedText) return;
+    const key = getTranslationCacheKey(roomId, lang, msgId);
+    translationCache[key] = {
+        originalText,
+        translatedText,
+        updatedAt: Date.now()
+    };
+    pruneTranslationCache();
+    saveTranslationCache();
+}
+
+function getCachedTranslatedMessage(roomId, lang, msgId, originalText) {
+    if (!roomId || !lang || !msgId) return null;
+    const key = getTranslationCacheKey(roomId, lang, msgId);
+    const cached = translationCache[key];
+    if (!cached || typeof cached !== 'object') return null;
+    if (!cached.updatedAt || (Date.now() - cached.updatedAt) > TRANSLATION_CACHE_TTL_MS) {
+        delete translationCache[key];
+        saveTranslationCache();
+        return null;
+    }
+    if ((cached.originalText || '') !== (originalText || '')) return null;
+    return cached.translatedText || null;
+}
 
 function setTranslationEnabled(enabled, persist = true) {
     translationEnabled = !!enabled;
@@ -1750,11 +1813,21 @@ async function appendChatMessage(data, isHistory = false) {
 
     DOM.chatMessages.appendChild(div);
 
-    // Server-side translation (Google Cloud) is personalized per recipient.
-    if (!isHistory && typeof data.translatedText === 'string' && data.translatedText.trim()) {
+    let translatedTextToRender = null;
+    if (typeof data.translatedText === 'string' && data.translatedText.trim()) {
+        translatedTextToRender = data.translatedText.trim();
+        if (data.id && translationEnabled && userLanguage) {
+            cacheTranslatedMessage(currentRoom, userLanguage, data.id, unescapedText, translatedTextToRender);
+        }
+    } else if (data.id && translationEnabled && userLanguage) {
+        translatedTextToRender = getCachedTranslatedMessage(currentRoom, userLanguage, data.id, unescapedText);
+    }
+
+    // Server-side translation (Google Cloud) with local cache fallback for refresh/history.
+    if (translationEnabled && typeof translatedTextToRender === 'string' && translatedTextToRender) {
         const translationDiv = document.createElement('div');
         translationDiv.className = 'msg-translation';
-        translationDiv.textContent = `🌐 ${data.translatedText}`;
+        translationDiv.textContent = `🌐 ${translatedTextToRender}`;
         div.appendChild(translationDiv);
         scrollToBottom();
     }
