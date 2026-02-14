@@ -86,6 +86,10 @@
             <option value="it">Italiano (Italian)</option>
             <option value="ru">Русский (Russian)</option>
           </select>
+          <label class="setting-toggle onboarding-toggle" for="translation-opt-in">
+            <input type="checkbox" id="translation-opt-in">
+            <span>Enable auto translation</span>
+          </label>
           <button type="submit" class="btn-primary">Join →</button>
           <button type="button" id="btn-back-wallet" class="btn-text" style="font-size: 12px; margin-top: 8px;">←
             back</button>
@@ -247,6 +251,13 @@
             <span id="counter-value">0</span>
           </div>
         </div>
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">Translation</h3>
+          <label class="setting-toggle" for="translation-toggle">
+            <input type="checkbox" id="translation-toggle">
+            <span>Enable auto translation</span>
+          </label>
+        </div>
         <!-- Admin Panel (Hidden by default) -->
         <div id="admin-panel" class="hidden">
           <select id="round-select">
@@ -257,8 +268,6 @@
           </select>
           <button id="btn-admin-game">⚡ Start</button>
         </div>
-        <!-- AI Status -->
-        <div id="ai-status" class="hidden"></div>
       </aside>
 
     </div>

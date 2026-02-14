@@ -71,7 +71,9 @@ function connectWebSocket(roomId) {
                 signature: currentSignature,
                 signMessage: currentSignMsg,
                 authNonce: currentAuthNonce,
-                color: userColor
+                color: userColor,
+                language: userLanguage,
+                translationEnabled
             };
             ws.send(JSON.stringify(joinMsg));
         }
@@ -90,6 +92,8 @@ function connectWebSocket(roomId) {
                 if (data.wallet) currentWalletAddress = data.wallet;
                 if (data.username) currentUsername = data.username;
                 if (data.color) userColor = data.color;
+                if (typeof data.language === 'string' && data.language) userLanguage = data.language;
+                if (typeof data.translationEnabled === 'boolean') setTranslationEnabled(data.translationEnabled, false);
 
                 if (isAdmin || isOwner || isMod) {
                     document.body.classList.add('is-staff');
@@ -278,6 +282,8 @@ const DOM = {
     sidebar: document.getElementById('sidebar'),
     sidebarBackdrop: document.getElementById('sidebar-backdrop'),
     languageSelect: document.getElementById('language-select'),
+    translationOptIn: document.getElementById('translation-opt-in'),
+    translationToggle: document.getElementById('translation-toggle'),
     btnInfo: document.getElementById('btn-info'),
     infoOverlay: document.getElementById('info-overlay'),
     infoPanel: document.getElementById('info-panel'),
@@ -285,6 +291,7 @@ const DOM = {
 };
 
 let userLanguage = 'en';
+let translationEnabled = false;
 let currentUsername = '';
 try {
     const savedName = localStorage.getItem('chat_username') || '';
@@ -296,7 +303,40 @@ try {
         DOM.languageSelect.value = savedLang;
         userLanguage = savedLang;
     }
+    const savedTranslation = localStorage.getItem('chat_translation_enabled');
+    translationEnabled = savedTranslation === '1';
 } catch (e) { }
+
+function setTranslationEnabled(enabled, persist = true) {
+    translationEnabled = !!enabled;
+    if (DOM.translationOptIn) DOM.translationOptIn.checked = translationEnabled;
+    if (DOM.translationToggle) DOM.translationToggle.checked = translationEnabled;
+    if (persist) {
+        try {
+            localStorage.setItem('chat_translation_enabled', translationEnabled ? '1' : '0');
+        } catch (e) { }
+    }
+    if (persist && ws && ws.readyState === WebSocket.OPEN && currentUsername) {
+        ws.send(JSON.stringify({
+            type: 'set-preferences',
+            language: userLanguage,
+            translationEnabled
+        }));
+    }
+}
+
+setTranslationEnabled(translationEnabled, false);
+
+if (DOM.translationOptIn) {
+    DOM.translationOptIn.addEventListener('change', (e) => {
+        setTranslationEnabled(!!e.target.checked);
+    });
+}
+if (DOM.translationToggle) {
+    DOM.translationToggle.addEventListener('change', (e) => {
+        setTranslationEnabled(!!e.target.checked);
+    });
+}
 
 function openInfoOverlay() {
     if (!DOM.infoOverlay) return;
@@ -376,6 +416,8 @@ let replyContext = null; // { id, username, text }
 
 
 const COMMANDS = [
+    '/translation usage',
+    '/tusage',
     '/whitelist',
     '/whitelist add',
     '/whitelist bulk',
@@ -725,6 +767,7 @@ DOM.loginForm.addEventListener('submit', async (e) => {
     if (!name) return;
     currentUsername = name;
     userLanguage = DOM.languageSelect ? DOM.languageSelect.value : 'en';
+    setTranslationEnabled(!!(DOM.translationOptIn && DOM.translationOptIn.checked));
     try {
         localStorage.setItem('chat_username', name);
         localStorage.setItem('chat_language', userLanguage);
@@ -746,7 +789,9 @@ DOM.loginForm.addEventListener('submit', async (e) => {
             signature: currentSignature,
             signMessage: currentSignMsg,
             authNonce: currentAuthNonce,
-            color: userColor
+            color: userColor,
+            language: userLanguage,
+            translationEnabled
         }));
     }
     DOM.loginOverlay.classList.add('hidden');
@@ -806,6 +851,7 @@ function createFallbackColorPicker() {
 const COMMANDS_DATA = {
     user: [
         { cmd: '/clear', desc: 'Clear your local chat history' },
+        { cmd: '/translation usage', desc: 'Show monthly translation usage' },
     ],
     mod: [
         { cmd: '/mute <user>', desc: 'Mute a user' },
@@ -1506,178 +1552,6 @@ function formatTime(ts) {
     return `${h}:${m} ${ampm}`;
 }
 
-function updateAIStatus(status, label) {
-    const aiStatus = document.getElementById('ai-status');
-    if (!aiStatus) return;
-
-    // Reset classes
-    aiStatus.className = '';
-
-    if (status === 'unavailable') {
-        aiStatus.classList.add('hidden');
-        aiStatus.textContent = '';
-    } else if (status === 'downloading') {
-        aiStatus.classList.remove('hidden');
-        aiStatus.classList.add('ai-status-downloading');
-        aiStatus.textContent = `Downloading ${label || 'Model'}...`;
-        aiStatus.title = 'Downloading AI Model';
-    } else if (status === 'ready') {
-        aiStatus.classList.remove('hidden');
-        aiStatus.classList.add('ai-status-ready');
-        aiStatus.textContent = 'AI Ready';
-
-        // Auto-hide after 3s
-        setTimeout(() => {
-            aiStatus.classList.add('hidden');
-        }, 3000);
-    }
-}
-
-async function getGoogleAiLanguageDetector() {
-    if (!window.ai?.languageDetector?.capabilities || !window.ai?.languageDetector?.create) {
-        updateAIStatus('unavailable');
-        return null;
-    }
-
-    const capabilities = await window.ai.languageDetector.capabilities();
-    if (!capabilities || capabilities.available === 'no') {
-        updateAIStatus('unavailable');
-        return null;
-    }
-
-    let detector;
-    try {
-        if (capabilities.available === 'readily') {
-            detector = await window.ai.languageDetector.create();
-        } else {
-            // Model needs to be downloaded
-            updateAIStatus('downloading', 'Language Model');
-            console.log('[AI] Downloading language detection model...');
-            detector = await window.ai.languageDetector.create({
-                monitor(m) {
-                    m.addEventListener('downloadprogress', (e) => {
-                        const percent = Math.round((e.loaded / e.total) * 100);
-                        console.log(`[AI] Language Model Download: ${percent}%`);
-                        updateAIStatus('downloading', `Language Model ${percent}%`);
-                    });
-                },
-            });
-            console.log('[AI] Language detection model ready.');
-        }
-        updateAIStatus('ready');
-    } catch (e) {
-        console.error('[AI] Failed to create language detector:', e);
-        updateAIStatus('unavailable');
-        return null;
-    }
-
-    return detector;
-}
-
-async function getGoogleAiTranslator(sourceLang, targetLang) {
-    if (!sourceLang || !targetLang || sourceLang === targetLang) return null;
-    if (!window.ai?.translator?.capabilities || !window.ai?.translator?.create) {
-        // Optional: only show unavailable if we really want to push it
-        // updateAIStatus('unavailable'); 
-        return null;
-    }
-
-    const capabilities = await window.ai.translator.capabilities({
-        sourceLanguage: sourceLang,
-        targetLanguage: targetLang
-    });
-
-    if (!capabilities || capabilities.available === 'no') {
-        return null;
-    }
-
-    let translator;
-    if (capabilities.available === 'readily') {
-        translator = await window.ai.translator.create({
-            sourceLanguage: sourceLang,
-            targetLanguage: targetLang
-        });
-    } else {
-        // Model needs to be downloaded
-        console.log(`[AI] Downloading translation model for ${sourceLang} -> ${targetLang}...`);
-        updateAIStatus('downloading', `Translation Model`);
-
-        // Notify user via system message if it's taking time
-        appendSystemMessage({
-            text: `Downloading AI translation model for ${sourceLang} → ${targetLang}... This may take a moment.`
-        });
-
-        translator = await window.ai.translator.create({
-            sourceLanguage: sourceLang,
-            targetLanguage: targetLang,
-            monitor(m) {
-                m.addEventListener('downloadprogress', (e) => {
-                    const percent = Math.round((e.loaded / e.total) * 100);
-                    console.log(`[AI] Translation Model Download: ${percent}%`);
-                    updateAIStatus('downloading', `Translation Model ${percent}%`);
-                });
-            },
-        });
-        console.log('[AI] Translation model ready.');
-        updateAIStatus('ready');
-    }
-
-    return translator;
-}
-
-async function translateText(text, targetLang) {
-    if (!text || !targetLang) return null;
-
-    // --- TIER 1: Google client-side AI APIs in Chrome (Gemini Nano) ---
-    try {
-        const detector = await getGoogleAiLanguageDetector();
-        let detectedLang = null;
-
-        if (detector) {
-            const detections = await detector.detect(text);
-            if (Array.isArray(detections) && detections.length > 0) {
-                const top = detections[0];
-                detectedLang = top.detectedLanguage;
-                console.log(`[TRANSLATION] Google AI detected ${detectedLang} (${top.confidence})`);
-            }
-        }
-
-        if (detectedLang && detectedLang === targetLang) {
-            return null;
-        }
-
-        if (detectedLang) {
-            const translator = await getGoogleAiTranslator(detectedLang, targetLang);
-            if (translator) {
-                const translated = await translator.translate(text);
-                if (translated && translated.trim().toLowerCase() !== text.trim().toLowerCase()) {
-                    return translated;
-                }
-            }
-        }
-    } catch (err) {
-        console.warn('[TRANSLATION] Google client-side AI APIs failed, falling back:', err);
-    }
-
-    // --- TIER 2: Legacy browser translation API fallback ---
-    if (window.translation && typeof window.translation.canTranslate === 'function') {
-        try {
-            const status = await window.translation.canTranslate({ targetLanguage: targetLang });
-            if (status !== 'no') {
-                const translator = await window.translation.createTranslator({ targetLanguage: targetLang });
-                const result = await translator.translate(text);
-                if (result && result.trim().toLowerCase() !== text.trim().toLowerCase()) {
-                    return result;
-                }
-            }
-        } catch (err) {
-            console.warn('[TRANSLATION] window.translation API failed:', err);
-        }
-    }
-
-    return null;
-}
-
 async function appendChatMessage(data, isHistory = false) {
     if (data.id && document.getElementById(`msg-${data.id}`)) {
         console.log('[CHAT] Skipping duplicate message:', data.id);
@@ -1876,17 +1750,13 @@ async function appendChatMessage(data, isHistory = false) {
 
     DOM.chatMessages.appendChild(div);
 
-    // Auto-Translation: Skip if system message or if it's from history
-    // User requested "force translation on any non native language".
-    if (!isHistory && unescapedText && userLanguage) {
-        const result = await translateText(unescapedText, userLanguage);
-        if (result && result.trim().toLowerCase() !== unescapedText.trim().toLowerCase()) {
-            const translationDiv = document.createElement('div');
-            translationDiv.className = 'msg-translation';
-            translationDiv.textContent = `🌐 ${result}`;
-            div.appendChild(translationDiv);
-            scrollToBottom();
-        }
+    // Server-side translation (Google Cloud) is personalized per recipient.
+    if (!isHistory && typeof data.translatedText === 'string' && data.translatedText.trim()) {
+        const translationDiv = document.createElement('div');
+        translationDiv.className = 'msg-translation';
+        translationDiv.textContent = `🌐 ${data.translatedText}`;
+        div.appendChild(translationDiv);
+        scrollToBottom();
     }
 }
 

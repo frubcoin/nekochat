@@ -303,6 +303,28 @@ body {
   border-color: var(--text-secondary);
 }
 
+.setting-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.setting-toggle input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.onboarding-toggle {
+  justify-content: center;
+}
+
 .divider {
   font-size: 12px;
   color: var(--text-muted);
@@ -1525,77 +1547,6 @@ body {
   font-size: 80px;
 }
 
-/* ═══ AI STATUS ═══ */
-#ai-status {
-  font-size: 11px;
-  color: var(--text-muted);
-  margin-left: 8px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  cursor: default;
-  position: relative;
-  white-space: nowrap;
-}
-
-#ai-status.status-downloading {
-  color: #7bbdff;
-}
-
-#ai-status.status-ready {
-  color: #4ade80;
-}
-
-#ai-status.status-unavailable {
-  color: #ff3333;
-  cursor: help;
-  text-decoration-line: underline;
-  text-decoration-style: dotted;
-}
-
-/* ═══ TYPING INDICATOR ═══ */
-/* ═══ TYPING INDICATOR ═══ */
-/* Tooltip */
-#ai-status .ai-tooltip {
-  visibility: hidden;
-  background-color: #111;
-  color: #eee;
-  text-align: center;
-  border-radius: 6px;
-  padding: 8px 12px;
-  position: absolute;
-  z-index: 10;
-  bottom: 125%;
-  left: 50%;
-  transform: translateX(-50%);
-  opacity: 0;
-  transition: opacity 0.2s;
-  width: 220px;
-  font-size: 11px;
-  border: 1px solid var(--border);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
-  pointer-events: none;
-  white-space: normal;
-  line-height: 1.4;
-}
-
-#ai-status .ai-tooltip::after {
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  margin-left: -5px;
-  border-width: 5px;
-  border-style: solid;
-  border-color: var(--border) transparent transparent transparent;
-}
-
-#ai-status:hover .ai-tooltip {
-  visibility: visible;
-  opacity: 1;
-}
-
-
 /* ═══ REPLY BAR ═══ */
 /* ═══ TYPING INDICATOR ═══ */
 /* ═══ REPLY BAR ═══ */
@@ -1793,32 +1744,6 @@ body {
 .msg-reply-context:hover {
   opacity: 1;
   text-decoration: underline;
-}
-
-/* AI Status */
-#ai-status {
-
-  font-size: 11px;
-  font-weight: 500;
-  margin-top: auto;
-  padding: 8px 12px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100%;
-  text-align: center;
-}
-
-.ai-status-downloading {
-  color: #FFA500;
-  background: rgba(255, 165, 0, 0.1);
-  animation: pulse 1.5s infinite;
-}
-
-.ai-status-ready {
-  color: #4ade80;
-  background: rgba(74, 222, 128, 0.1);
 }
 
 /* ═══ SCROLL BUTTONS (SIDEBAR) ═══ */

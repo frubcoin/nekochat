@@ -89,10 +89,140 @@ const HTTP_RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const HTTP_RATE_LIMIT_MAX = 30;
 
 type GameState = "IDLE" | "READY" | "GO";
+type TranslationCacheEntry = { translatedText: string; timestamp: number };
+type DetectCacheEntry = { language: string; timestamp: number };
 
 export default class NekoChat implements Party.Server {
   authChallenges = new Map<string, { nonce: string; roomId: string; expiresAt: number }>();
   httpRateLimits = new Map<string, number[]>();
+  translationCache = new Map<string, TranslationCacheEntry>();
+  detectCache = new Map<string, DetectCacheEntry>();
+  readonly TRANSLATION_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+  readonly DETECT_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+  readonly TRANSLATION_CACHE_MAX = 2000;
+  readonly DETECT_CACHE_MAX = 2000;
+  readonly TRANSLATION_MONTHLY_LIMIT = 500_000;
+  monthlyTranslationMonth: string | null = null;
+  monthlyTranslationChars = 0;
+
+  private normalizeLanguageCode(value: unknown): string {
+    const raw = String(value || "").trim().toLowerCase();
+    if (!raw) return "";
+    if (!/^[a-z]{2,3}(-[a-z0-9]{2,8})?$/.test(raw)) return "";
+    return raw;
+  }
+
+  private pruneCache<T extends { timestamp: number }>(cache: Map<string, T>, maxEntries: number) {
+    if (cache.size <= maxEntries) return;
+    const entries = [...cache.entries()].sort((a, b) => a[1].timestamp - b[1].timestamp);
+    const toDelete = Math.ceil(entries.length / 3);
+    for (let i = 0; i < toDelete; i++) {
+      cache.delete(entries[i][0]);
+    }
+  }
+
+  private getCurrentMonthKey(): string {
+    const now = new Date();
+    const year = now.getUTCFullYear();
+    const month = String(now.getUTCMonth() + 1).padStart(2, "0");
+    return `${year}-${month}`;
+  }
+
+  private async ensureMonthlyTranslationUsageLoaded() {
+    const monthKey = this.getCurrentMonthKey();
+    if (this.monthlyTranslationMonth === monthKey) return;
+    this.monthlyTranslationMonth = monthKey;
+    this.monthlyTranslationChars = ((await this.room.storage.get<number>(`translationUsage:${monthKey}`)) as number) || 0;
+  }
+
+  private async canSpendTranslationChars(chars: number): Promise<boolean> {
+    if (chars <= 0) return true;
+    await this.ensureMonthlyTranslationUsageLoaded();
+    return (this.monthlyTranslationChars + chars) <= this.TRANSLATION_MONTHLY_LIMIT;
+  }
+
+  private async recordTranslationChars(chars: number) {
+    if (chars <= 0) return;
+    await this.ensureMonthlyTranslationUsageLoaded();
+    this.monthlyTranslationChars += chars;
+    const monthKey = this.monthlyTranslationMonth as string;
+    await this.room.storage.put(`translationUsage:${monthKey}`, this.monthlyTranslationChars);
+  }
+
+  private async detectLanguageGoogle(text: string): Promise<string | null> {
+    const apiKey = String((this.room.env.GOOGLE_TRANSLATE_API_KEY as string) || "").trim();
+    if (!apiKey) return null;
+
+    const cacheKey = text;
+    const cached = this.detectCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp) < this.DETECT_CACHE_TTL_MS) {
+      return cached.language;
+    }
+    if (!(await this.canSpendTranslationChars(text.length))) {
+      return null;
+    }
+
+    try {
+      const res = await fetch(`https://translation.googleapis.com/language/translate/v2/detect?key=${encodeURIComponent(apiKey)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ q: text })
+      });
+      if (!res.ok) return null;
+      const data = await res.json() as any;
+      const lang = String(data?.data?.detections?.[0]?.[0]?.language || "").toLowerCase();
+      const normalized = this.normalizeLanguageCode(lang);
+      if (!normalized) return null;
+      await this.recordTranslationChars(text.length);
+      this.detectCache.set(cacheKey, { language: normalized, timestamp: now });
+      this.pruneCache(this.detectCache, this.DETECT_CACHE_MAX);
+      return normalized;
+    } catch {
+      return null;
+    }
+  }
+
+  private async translateGoogle(text: string, targetLanguage: string, sourceLanguage?: string | null): Promise<string | null> {
+    const apiKey = String((this.room.env.GOOGLE_TRANSLATE_API_KEY as string) || "").trim();
+    if (!apiKey) return null;
+
+    const target = this.normalizeLanguageCode(targetLanguage);
+    const source = this.normalizeLanguageCode(sourceLanguage || "");
+    if (!target) return null;
+    if (source && source === target) return null;
+
+    const cacheKey = `${source || "auto"}|${target}|${text}`;
+    const cached = this.translationCache.get(cacheKey);
+    const now = Date.now();
+    if (cached && (now - cached.timestamp) < this.TRANSLATION_CACHE_TTL_MS) {
+      return cached.translatedText;
+    }
+
+    if (!(await this.canSpendTranslationChars(text.length))) {
+      return null;
+    }
+
+    try {
+      const body: Record<string, string> = { q: text, target, format: "text" };
+      if (source) body.source = source;
+      const res = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(apiKey)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) return null;
+      const data = await res.json() as any;
+      const translatedText = String(data?.data?.translations?.[0]?.translatedText || "").trim();
+      if (!translatedText) return null;
+      await this.recordTranslationChars(text.length);
+      this.translationCache.set(cacheKey, { translatedText, timestamp: now });
+      this.pruneCache(this.translationCache, this.TRANSLATION_CACHE_MAX);
+      return translatedText;
+    } catch {
+      return null;
+    }
+  }
 
   private getReplyColorForIdentity(username: string, wallet?: string | null): string {
     const seed = (wallet || username || "").toLowerCase().trim();
@@ -572,7 +702,9 @@ export default class NekoChat implements Party.Server {
       const isOwner = wallet === ownerWallet;
 
       const canEmbedUrls = await this.canShareUrl(wallet, isAdmin, isMod, isOwner);
-      sender.setState({ username, color, wallet, isAdmin, isMod, isOwner, canEmbedUrls, isTyping: false });
+      const language = this.normalizeLanguageCode(parsed.language) || "en";
+      const translationEnabled = !!parsed.translationEnabled;
+      sender.setState({ username, color, wallet, isAdmin, isMod, isOwner, canEmbedUrls, isTyping: false, language, translationEnabled });
 
       // Generate unique ID for the message
       const messageId = crypto.randomUUID();
@@ -612,7 +744,9 @@ export default class NekoChat implements Party.Server {
         isOwner,
         isAdmin,
         isMod,
-        color
+        color,
+        language,
+        translationEnabled
       }));
 
       // ... (rest of join logic) ...
@@ -858,6 +992,26 @@ export default class NekoChat implements Party.Server {
       return;
     }
 
+    if (parsed.type === "set-preferences") {
+      const state = sender.state as any;
+      if (!state?.username) return;
+      const nextLanguage = this.normalizeLanguageCode(parsed.language) || state.language || "en";
+      const nextTranslationEnabled = !!parsed.translationEnabled;
+      sender.setState({ ...state, language: nextLanguage, translationEnabled: nextTranslationEnabled });
+      sender.send(JSON.stringify({
+        type: "identity",
+        username: state.username,
+        wallet: state.wallet,
+        isOwner: !!state.isOwner,
+        isAdmin: !!state.isAdmin,
+        isMod: !!state.isMod,
+        color: state.color,
+        language: nextLanguage,
+        translationEnabled: nextTranslationEnabled
+      }));
+      return;
+    }
+
 
 
     if (parsed.type === "chat") {
@@ -868,6 +1022,8 @@ export default class NekoChat implements Party.Server {
         isAdmin: boolean;
         isMod: boolean;
         isOwner: boolean;
+        language?: string;
+        translationEnabled?: boolean;
       };
 
       if (!username) return;
@@ -877,8 +1033,8 @@ export default class NekoChat implements Party.Server {
 
       if (isCommand) {
         const cmd = parsed.text.trim().split(/\s+/)[0].toLowerCase();
-        // Allow /help for everyone, other commands require admin/mod
-        if (cmd === "/help" || isAdminOrMod) {
+        // Allow non-privileged utility commands for everyone.
+        if (cmd === "/help" || cmd === "/translation" || cmd === "/tusage" || isAdminOrMod) {
           await this.handleCommand(parsed.text, sender, { isAdmin, isMod, isOwner, wallet });
           return;
         }
@@ -1009,10 +1165,45 @@ export default class NekoChat implements Party.Server {
       };
       delete (broadcastData as any).wallet;
 
-      // Broadcast to everyone (without wallet)
-      this.room.broadcast(
-        JSON.stringify({ type: "chat-message", ...broadcastData })
-      );
+      // Per-user fanout so translation can be personalized while keeping one source message.
+      const connections = [...this.room.getConnections()];
+      const targetLanguages = new Set<string>();
+      for (const conn of connections) {
+        const state = conn.state as any;
+        if (!state?.username || !state?.translationEnabled) continue;
+        const target = this.normalizeLanguageCode(state.language);
+        if (target) targetLanguages.add(target);
+      }
+
+      let sourceLanguage: string | null = null;
+      const translatedByTarget = new Map<string, string>();
+      if (targetLanguages.size > 0) {
+        sourceLanguage = await this.detectLanguageGoogle(text);
+        if (sourceLanguage) {
+          targetLanguages.delete(sourceLanguage);
+          for (const target of targetLanguages) {
+            const translated = await this.translateGoogle(text, target, sourceLanguage);
+            if (translated && translated.toLowerCase() !== text.toLowerCase()) {
+              translatedByTarget.set(target, translated);
+            }
+          }
+        }
+      }
+
+      for (const conn of connections) {
+        const state = conn.state as any;
+        const target = this.normalizeLanguageCode(state?.language);
+        const personalizedPayload: Record<string, any> = { type: "chat-message", ...broadcastData };
+        if (state?.translationEnabled && target) {
+          const translated = translatedByTarget.get(target);
+          if (translated) {
+            personalizedPayload.translatedText = translated;
+            personalizedPayload.translatedLanguage = target;
+            if (sourceLanguage) personalizedPayload.sourceLanguage = sourceLanguage;
+          }
+        }
+        conn.send(JSON.stringify(personalizedPayload));
+      }
 
       // Send wallet reveal to admins/mods/owners
       if (wallet) {
@@ -1262,7 +1453,8 @@ export default class NekoChat implements Party.Server {
     if (command === "/help") {
       const available: { cmd: string, desc: string }[] = [
         { cmd: "/help", desc: "List available commands" },
-        { cmd: "/clear", desc: "Clear your local chat history" }
+        { cmd: "/clear", desc: "Clear your local chat history" },
+        { cmd: "/translation usage", desc: "Show monthly translation usage (room)" }
       ];
 
       if (isMod || isAdmin || isOwner) {
@@ -1295,6 +1487,26 @@ export default class NekoChat implements Party.Server {
       sender.send(JSON.stringify({
         type: "help-list",
         commands: available
+      }));
+      return;
+    }
+
+    if (command === "/translation" || command === "/tusage") {
+      if (command === "/translation" && (subCommand || "").toLowerCase() !== "usage") {
+        sender.send(JSON.stringify({ type: "system-message", text: "Usage: /translation usage" }));
+        return;
+      }
+
+      await this.ensureMonthlyTranslationUsageLoaded();
+      const month = this.monthlyTranslationMonth || this.getCurrentMonthKey();
+      const used = this.monthlyTranslationChars;
+      const limit = this.TRANSLATION_MONTHLY_LIMIT;
+      const remaining = Math.max(0, limit - used);
+      const pct = ((used / limit) * 100).toFixed(1);
+
+      sender.send(JSON.stringify({
+        type: "system-message",
+        text: `🌐 Translation usage (${month}): ${used.toLocaleString()} / ${limit.toLocaleString()} chars (${pct}%) • Remaining: ${remaining.toLocaleString()}`
       }));
       return;
     }
